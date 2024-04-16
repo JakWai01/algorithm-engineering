@@ -1,4 +1,4 @@
-use std::{any::type_name, env, fs::File, io::{self, BufRead}, path::Path};
+use std::{env, fs::File, io::{self, BufRead}, path::Path, thread::current};
 
 #[derive(Debug)]
 struct Vertex {
@@ -87,8 +87,39 @@ fn main() {
 
     // Sort by starting node in order to get offset array
     edges.sort_by_key(|edge| edge.start);
-    
-    println!("First five edges of offset array {:?}", &edges[0..5]);
+
+
+    let mut offset_array: Vec<u64> = vec![0, num_vertices];
+
+    let mut current_node_id: u64 = 0;
+    for (i, edge) in edges.iter().enumerate() {
+        if edge.start == current_node_id {
+            offset_array.insert(current_node_id as usize, i as u64);
+            current_node_id += 1;
+        }
+    }
+
+    // Now we want to fill the remaining zeros in the offset-array with the value of the next non-zero.
+    // If there are only zeros left -- TODO: do we need this case? 
+    for (i, offset) in offset_array.iter_mut().enumerate() {
+        let mut j = 0;
+
+        if *offset == 0 && i != 0 {
+            while offset_array[i + j] == 0 {
+                j += 1;
+            }
+
+            for k in i..i+j {
+                offset_array[i + k] = offset_array[i + j];
+            }
+        }
+    }
+
+    println!("First five offsets of offset array {:?}", &offset_array[0..5]);
+
+    println!("Last offsets of offset array {:?}", &offset_array.last());
+
+    println!("First five edges of edge array {:?}", &edges[0..5]);
 
     println!("DONE");
 }

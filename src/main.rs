@@ -9,6 +9,7 @@ struct Vertex {
     lon: f64,
     lat: f64,
     height: i64,
+    marker: usize,
 }
 
 #[derive(Debug)]
@@ -49,7 +50,8 @@ fn main() {
                 osm_id: iter.next().unwrap().parse().unwrap(),
                 lon: iter.next().unwrap().parse().unwrap(),
                 lat: iter.next().unwrap().parse().unwrap(),
-                height: iter.next().unwrap().parse().unwrap(),                
+                height: iter.next().unwrap().parse().unwrap(),
+                marker: 0,
             };
             vertices.push(vertex);
         }
@@ -110,6 +112,17 @@ fn main() {
         }
     }
 
+    // Finding connected components of a graph using DFS
+    // All vertices are initially initialized with a marker value of 0 which can be interpreted as
+    // the component not being marked
+    let mut components: usize = 0;
+    for vertex in vertices {
+        if vertex.marker == 0 {
+            components += 1;
+            depth_first_search(vertex)
+        }
+    }
+    
     println!("First five offsets of offset array {:?}", &offset_array[0..300]);
 
     println!("Last offsets of offset array {:?}", &offset_array.last());
@@ -117,6 +130,10 @@ fn main() {
     println!("First five edges of edge array {:?}", &edges[0..100]);
 
     println!("DONE");
+}
+
+fn depth_first_search(vertex: Vertex) {
+    unimplemented!()
 }
 
 // The output is wrapped in a Result to allow matching on errors.

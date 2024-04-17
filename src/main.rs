@@ -1,24 +1,23 @@
-use std::{env, fs::File, io::{self, BufRead}, path::Path};
+use std::{env, fs::File, io::{self, BufRead}, path::Path, collections::HashMap};
 
 
 // Consider using usizes in all fields
 #[derive(Debug)]
 struct Vertex {
-    id: u64,
-    osm_id: u64,
+    id: usize,
+    osm_id: usize,
     lon: f64,
     lat: f64,
-    height: i64,
-    marker: usize,
+    height: usize,
 }
 
 #[derive(Debug)]
 struct Edge {
-    start_vertex: u64,
-    end_node: u64,
-    weight: u64,
-    typ: u64,
-    max_speed: u64,
+    start_vertex: usize,
+    end_vertex: usize,
+    weight: usize,
+    typ: usize,
+    max_speed: usize,
 }
 
 fn main() {
@@ -32,13 +31,13 @@ fn main() {
         lines.next();
     }
 
-    let num_vertices: u64 = lines.next().unwrap().unwrap().parse().unwrap();
-    let num_edges: u64 = lines.next().unwrap().unwrap().parse().unwrap();
+    let num_vertices: usize = lines.next().unwrap().unwrap().parse().unwrap();
+    let num_edges: usize = lines.next().unwrap().unwrap().parse().unwrap();
 
     println!("Number of vertices: {}", num_vertices);
     println!("Number of edges: {}", num_edges);
 
-    let mut vertices: Vec<Vertex> = Vec::new();
+    let mut vertices = HashMap::new();
     let mut edges: Vec<Edge> = Vec::new();
 
     for _ in 0..num_vertices {
@@ -51,9 +50,9 @@ fn main() {
                 lon: iter.next().unwrap().parse().unwrap(),
                 lat: iter.next().unwrap().parse().unwrap(),
                 height: iter.next().unwrap().parse().unwrap(),
-                marker: 0,
             };
-            vertices.push(vertex);
+            // We don't need to store the whole vertex, lon and lat should be sufficient
+            vertices.insert(vertex.id, vertex);
         }
     }
 
@@ -61,31 +60,15 @@ fn main() {
         if let Some(line) = lines.next() {
             let l = line.unwrap();
             let mut iter = l.split_whitespace();
-            let start_vertex: u64 = iter.next().unwrap().parse().unwrap();
-            let end_node: u64 = iter.next().unwrap().parse().unwrap();
-            let weight: u64 = iter.next().unwrap().parse().unwrap();
-            let typ: u64 = iter.next().unwrap().parse().unwrap();
-            let max_speed: u64 = iter.next().unwrap().parse().unwrap();
 
             let edge = Edge {
-                start_vertex: start_vertex,
-                end_node: end_node,
-                weight: weight,
-                typ: typ,
-                max_speed: max_speed                              
+                start_vertex: iter.next().unwrap().parse().unwrap(),
+                end_vertex: iter.next().unwrap().parse().unwrap(),
+                weight: iter.next().unwrap().parse().unwrap(),
+                typ: iter.next().unwrap().parse().unwrap(),
+                max_speed: iter.next().unwrap().parse().unwrap()
             };
             edges.push(edge);
-            
-            if start_vertex != end_node {
-                let back_edge = Edge {
-                    start_vertex: end_node,
-                    end_node: start_vertex,
-                    weight: weight,
-                    typ: typ,
-                    max_speed: max_speed                              
-                };
-                edges.push(back_edge);
-            }
         }
     }
 
@@ -94,7 +77,7 @@ fn main() {
     
     // num_edges != edges.len() since we are converting the edges to an undirected graph
     // by inserting the edges another time in reverse direction
-    let mut offset_array: Vec<u64> = vec![edges.len() as u64, num_vertices];
+    let mut offset_array: Vec<usize> = vec![edges.len(), num_vertices];
     
     // Initialize variables
     let mut previous_vertex_id = 0;
@@ -106,7 +89,7 @@ fn main() {
     for (i, edge) in edges.iter().enumerate() {
         if edge.start_vertex != previous_vertex_id {
             for j in previous_vertex_id+1..=edge.start_vertex {
-                offset_array.insert(j as usize, i as u64);
+                offset_array.insert(j, i);
             }
             previous_vertex_id = edge.start_vertex;
         }
@@ -115,11 +98,14 @@ fn main() {
     // Finding connected components of a graph using DFS
     // All vertices are initially initialized with a marker value of 0 which can be interpreted as
     // the component not being marked
-    let mut components: usize = 0;
-    for vertex in vertices {
-        if vertex.marker == 0 {
-            components += 1;
-            depth_first_search(vertex)
+    let mut c: usize = 0;
+
+    let mut marked: HashMap<usize, usize> = HashMap::new();
+
+    for vertex in vertices.values() {
+        if !marked.contains_key(&vertex.id) {
+            c += 1;
+            depth_first_search(vertex, &offset_array, &edges, &vertices, &mut marked, c);
         }
     }
     
@@ -132,9 +118,31 @@ fn main() {
     println!("DONE");
 }
 
-fn depth_first_search(vertex: Vertex) {
-    unimplemented!()
+fn get_neighbour_ids(vertex: &Vertex, offset_array: &Vec<usize>, edges: &Vec<Edge>) -> Vec<usize> {
+    let mut offset_index = *offset_array.get(vertex.id).unwrap();
+    let mut neighbour_ids: Vec<usize> = Vec::new();
+    
+    while edges.get(offset_index).unwrap().start_vertex == vertex.id {
+        let neighbour_id = edges.get(offset_index).unwrap().end_vertex;
+        neighbour_ids.push(neighbour_id);  
+        offset_index += 1;
+    }
+
+    neighbour_ids
 }
+
+fn depth_first_search(vertex: &Vertex, offset_array: &Vec<usize>, edges: &Vec<Edge>, vertices: &HashMap<usize, Vertex>, marked: &mut HashMap<usize, usize>, c: usize) {
+    marked.insert(vertex.id, c); 
+    for id in get_neighbour_ids(vertex, offset_array, edges) {
+        if let Some(ref mut neighbour) = vertices.get(&id) {
+            if !marked.contains_key(&neighbour.id) {
+                println!("Calling depth_first_search on neighbour: {:?}", neighbour);
+                depth_first_search(neighbour, offset_array, edges, vertices, marked, c);
+            }
+        }
+    }
+}
+
 
 // The output is wrapped in a Result to allow matching on errors.
 // Returns an Iterator to the Reader of the lines of the file.

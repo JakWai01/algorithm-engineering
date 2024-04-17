@@ -1,5 +1,7 @@
-use std::{env, fs::File, io::{self, BufRead}, path::Path, thread::current};
+use std::{env, fs::File, io::{self, BufRead}, path::Path};
 
+
+// Consider using usizes in all fields
 #[derive(Debug)]
 struct Vertex {
     id: u64,
@@ -11,8 +13,8 @@ struct Vertex {
 
 #[derive(Debug)]
 struct Edge {
-    start: u64,
-    end: u64,
+    start_vertex: u64,
+    end_node: u64,
     weight: u64,
     typ: u64,
     max_speed: u64,
@@ -57,25 +59,25 @@ fn main() {
         if let Some(line) = lines.next() {
             let l = line.unwrap();
             let mut iter = l.split_whitespace();
-            let start: u64 = iter.next().unwrap().parse().unwrap();
-            let end: u64 = iter.next().unwrap().parse().unwrap();
+            let start_vertex: u64 = iter.next().unwrap().parse().unwrap();
+            let end_node: u64 = iter.next().unwrap().parse().unwrap();
             let weight: u64 = iter.next().unwrap().parse().unwrap();
             let typ: u64 = iter.next().unwrap().parse().unwrap();
             let max_speed: u64 = iter.next().unwrap().parse().unwrap();
 
             let edge = Edge {
-                start: start,
-                end: end,
+                start_vertex: start_vertex,
+                end_node: end_node,
                 weight: weight,
                 typ: typ,
                 max_speed: max_speed                              
             };
             edges.push(edge);
             
-            if start != end {
+            if start_vertex != end_node {
                 let back_edge = Edge {
-                    start: end,
-                    end: start,
+                    start_vertex: end_node,
+                    end_node: start_vertex,
                     weight: weight,
                     typ: typ,
                     max_speed: max_speed                              
@@ -86,40 +88,33 @@ fn main() {
     }
 
     // Sort by starting node in order to get offset array
-    edges.sort_by_key(|edge| edge.start);
-
-
-    let mut offset_array: Vec<u64> = vec![0, num_vertices];
-
-    let mut current_node_id: u64 = 0;
+    edges.sort_by_key(|edge| edge.start_vertex);
+    
+    // num_edges != edges.len() since we are converting the edges to an undirected graph
+    // by inserting the edges another time in reverse direction
+    let mut offset_array: Vec<u64> = vec![edges.len() as u64, num_vertices];
+    
+    // Initialize variables
+    let mut previous_vertex_id = 0;
+    offset_array.insert(0, 0);
+    
+    // If the the start_vertex changes in the edges vector, store the offset in the offset vector
+    // and set this offset for all start_vertex id's that have been skipped in this last step.
+    // However, I am not sure if this case even occurs in our road network.
     for (i, edge) in edges.iter().enumerate() {
-        if edge.start == current_node_id {
-            offset_array.insert(current_node_id as usize, i as u64);
-            current_node_id += 1;
+        if edge.start_vertex != previous_vertex_id {
+            for j in previous_vertex_id+1..=edge.start_vertex {
+                offset_array.insert(j as usize, i as u64);
+            }
+            previous_vertex_id = edge.start_vertex;
         }
     }
 
-    // Now we want to fill the remaining zeros in the offset-array with the value of the next non-zero.
-    // If there are only zeros left -- TODO: do we need this case? 
-    for (i, offset) in offset_array.iter_mut().enumerate() {
-        let mut j = 0;
-
-        if *offset == 0 && i != 0 {
-            while offset_array[i + j] == 0 {
-                j += 1;
-            }
-
-            for k in i..i+j {
-                offset_array[i + k] = offset_array[i + j];
-            }
-        }
-    }
-
-    println!("First five offsets of offset array {:?}", &offset_array[0..5]);
+    println!("First five offsets of offset array {:?}", &offset_array[0..300]);
 
     println!("Last offsets of offset array {:?}", &offset_array.last());
 
-    println!("First five edges of edge array {:?}", &edges[0..5]);
+    println!("First five edges of edge array {:?}", &edges[0..100]);
 
     println!("DONE");
 }

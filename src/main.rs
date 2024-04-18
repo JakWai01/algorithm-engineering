@@ -99,15 +99,22 @@ fn main() {
     // All vertices are initially initialized with a marker value of 0 which can be interpreted as
     // the component not being marked
     let mut c: usize = 0;
-
-    let mut marked: HashMap<usize, usize> = HashMap::new();
-
-    for vertex in vertices.values() {
-        if !marked.contains_key(&vertex.id) {
+    
+    // The HashMap is kind of useless, we only need the keys
+    let mut visited: HashMap<usize, usize> = HashMap::new();
+    
+    println!("Vertices elements {}", vertices.len());
+    for v in vertices.values() {
+        if !visited.contains_key(&v.id) {
+            println!("Key is not contained! Starting dfs");
             c += 1;
-            depth_first_search(vertex, &offset_array, &edges, &vertices, &mut marked, c);
+            dfs(v, &mut visited, &offset_array, &edges);
+        } else {
+            println!("Vertex is already in a component");
         }
     }
+
+    println!("Number of connected components {}", c);
     
     println!("First five offsets of offset array {:?}", &offset_array[0..300]);
 
@@ -118,31 +125,44 @@ fn main() {
     println!("DONE");
 }
 
-fn get_neighbour_ids(vertex: &Vertex, offset_array: &Vec<usize>, edges: &Vec<Edge>) -> Vec<usize> {
-    let mut offset_index = *offset_array.get(vertex.id).unwrap();
-    let mut neighbour_ids: Vec<usize> = Vec::new();
+fn dfs(v: &Vertex, visited: &mut HashMap<usize, usize>, offset_array: &Vec<usize>, edges: &Vec<Edge>) {
+    let mut stack = Vec::new();
+
+    stack.push(v.id);
+    visited.insert(v.id, 1);
     
-    while edges.get(offset_index).unwrap().start_vertex == vertex.id {
-        let neighbour_id = edges.get(offset_index).unwrap().end_vertex;
-        neighbour_ids.push(neighbour_id);  
-        offset_index += 1;
-    }
-
-    neighbour_ids
-}
-
-fn depth_first_search(vertex: &Vertex, offset_array: &Vec<usize>, edges: &Vec<Edge>, vertices: &HashMap<usize, Vertex>, marked: &mut HashMap<usize, usize>, c: usize) {
-    marked.insert(vertex.id, c); 
-    for id in get_neighbour_ids(vertex, offset_array, edges) {
-        if let Some(ref mut neighbour) = vertices.get(&id) {
-            if !marked.contains_key(&neighbour.id) {
-                println!("Calling depth_first_search on neighbour: {:?}", neighbour);
-                depth_first_search(neighbour, offset_array, edges, vertices, marked, c);
+    while !stack.is_empty() {
+        if let Some(current_vertex) = stack.pop() {
+            let neighbour_ids = get_neighbour_ids(current_vertex, offset_array, edges);
+            for n in neighbour_ids {
+                if !visited.contains_key(&n) {
+                    stack.push(n);
+                    visited.insert(n, 1);
+                }
             }
         }
     }
 }
 
+fn get_neighbour_ids(vertex_id: usize, offset_array: &Vec<usize>, edges: &Vec<Edge>) -> Vec<usize> {
+    let mut offset_index = *offset_array.get(vertex_id).unwrap();
+    let mut neighbour_ids: Vec<usize> = Vec::new();
+    
+    let mut start_vertex = edges.get(offset_index).unwrap().start_vertex;
+
+    while start_vertex == vertex_id {
+        let neighbour_id = edges.get(offset_index).unwrap().end_vertex;
+        neighbour_ids.push(neighbour_id);  
+        offset_index += 1;
+        if let Some(start) = edges.get(offset_index) {
+            start_vertex = start.start_vertex;
+        } else {
+            return Vec::new()
+        }
+    }
+
+    neighbour_ids
+}
 
 // The output is wrapped in a Result to allow matching on errors.
 // Returns an Iterator to the Reader of the lines of the file.

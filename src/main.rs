@@ -101,7 +101,6 @@ fn main() {
 
     // Initialize variables
     let mut previous_vertex_id = 0;
-    // offset_array.insert(0, 0);
     offset_array[0] = 0;
 
     // If the the start_vertex changes in the edges vector, store the offset in the offset vector
@@ -116,8 +115,6 @@ fn main() {
         }
     }
 
-    // println!("Offset array {:?}", offset_array);
-
     // Finding connected components of a graph using DFS
     // All vertices are initially initialized with a marker value of 0 which can be interpreted as
     // the component not being marked
@@ -127,7 +124,6 @@ fn main() {
 
     for v in vertices.values().into_iter() {
         if !visited.contains(&v.id) {
-            // println!("So far, visited does not contain {}, hence executing dfs again. visited: {:?}", v.id, visited);
             c += 1;
             dfs(v, &mut visited, &offset_array, &edges);
         }
@@ -150,7 +146,6 @@ fn dfs(
     while !stack.is_empty() {
         if let Some(current_vertex) = stack.pop() {
             let neighbour_ids = get_neighbour_ids(current_vertex, offset_array, edges);
-            // println!("Neighbour_ids {:?}", neighbour_ids);
             for n in neighbour_ids {
                 if !visited.contains(&n) {
                     stack.push(n);

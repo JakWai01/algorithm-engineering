@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet}, env, fs::File, io::{self, BufRead}, path::Path
+    cmp::Ordering, collections::{BinaryHeap, HashMap, HashSet}, env, fs::File, io::{self, BufRead}, path::Path
 };
 
 // Consider using usizes in all fields
@@ -38,7 +38,7 @@ fn main() {
 
     println!("Number of vertices: {}", num_vertices);
     println!("Number of edges: {}", num_edges);
-    
+
     let mut vertices = HashMap::new();
     let mut edges: Vec<Edge> = Vec::new();
 
@@ -69,7 +69,7 @@ fn main() {
             let weight = iter.next().unwrap().parse().unwrap();
             let typ = iter.next().unwrap().parse().unwrap();
             let max_speed = iter.next().unwrap().parse().unwrap();
-            
+
             let edge = Edge {
                 start_vertex: start_vertex,
                 end_vertex: end_vertex,
@@ -85,7 +85,7 @@ fn main() {
                     end_vertex: start_vertex,
                     weight: weight,
                     typ: typ,
-                    max_speed: max_speed 
+                    max_speed: max_speed,
                 };
                 edges.push(back_edge);
             }
@@ -130,14 +130,62 @@ fn main() {
     }
 
     println!("Number of connected components {}", c);
+
+    let start_node = vertices.get(&0).unwrap();
+    let distances = dijkstra(start_node, &vertices, &offset_array, &edges);
+    println!("distances: {:?}", distances);
 }
 
-fn dfs(
-    v: &Vertex,
-    visited: &mut HashSet<usize>,
-    offset_array: &Vec<usize>,
-    edges: &Vec<Edge>,
-) {
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+struct PQEntry {
+    distance: usize,
+    vertex: usize,
+}
+
+impl Ord for PQEntry {
+    fn cmp(&self, other: &Self) -> Ordering {
+        other.distance.cmp(&self.distance).then_with(|| self.vertex.cmp(&other.vertex))
+    }
+}
+
+impl PartialOrd for PQEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+            Some(self.cmp(other))
+    }
+}
+
+// In order to get c(), just return neighbours instead of neighbour_ids.
+// Like this, we can avoid additional lookups
+fn dijkstra(s: &Vertex, vertices: &HashMap<usize, Vertex>, offset_array: &Vec<usize>, edges: &Vec<Edge>) -> Vec<usize> {
+    let mut dist: Vec<usize> = (0..vertices.len()).map(|_| usize::MAX).collect();
+    let mut pq: BinaryHeap<PQEntry> = BinaryHeap::new();
+
+    dist[s.id] = 0;
+
+    for (id, _vertex) in vertices {
+        // TODO: Don't push infinity into the PQ
+        pq.push(PQEntry{distance: dist[*id], vertex: *id});
+    }
+
+    while let Some(PQEntry{ distance, vertex }) = pq.pop() {
+        // println!("Distances: {:?}", dist);
+        // println!("Popped PQ entry with distance: {}", distance);
+        // println!("PQ: {:?}", pq);
+        for incident_edge in get_incident_edges(vertex, offset_array, edges) {
+            let neighbour_id = incident_edge.end_vertex;
+            // println!("dist[neighbour_id]: {}, dist[vertex]: {}, incident_edge.weight: {}", dist[neighbour_id], dist[vertex], incident_edge.weight);
+            if dist[vertex] != usize::MAX && dist[neighbour_id] > dist[vertex] + incident_edge.weight {
+                dist[neighbour_id] = dist[vertex] + incident_edge.weight;
+                pq.push(PQEntry{ distance: dist[vertex] + incident_edge.weight, vertex: neighbour_id});
+                // println!("PQ after relaxation: {:?}", pq);
+            }
+        }
+    }
+
+    dist
+}
+
+fn dfs(v: &Vertex, visited: &mut HashSet<usize>, offset_array: &Vec<usize>, edges: &Vec<Edge>) {
     let mut stack = Vec::new();
 
     stack.push(v.id);
@@ -145,15 +193,43 @@ fn dfs(
 
     while !stack.is_empty() {
         if let Some(current_vertex) = stack.pop() {
-            let neighbour_ids = get_neighbour_ids(current_vertex, offset_array, edges);
-            for n in neighbour_ids {
-                if !visited.contains(&n) {
-                    stack.push(n);
-                    visited.insert(n);
+            for neighbour in get_neighbour_ids(current_vertex, offset_array, edges) {
+                if !visited.contains(&neighbour) {
+                    stack.push(neighbour);
+                    visited.insert(neighbour);
                 }
             }
         }
     }
+}
+
+// Use get_incident_edges for everything in order to simplify code
+fn get_incident_edges<'a>(vertex_id: usize, offset_array: &Vec<usize>, edges: &'a Vec<Edge>) -> Vec<&'a Edge> {
+    // println!("Get neighbours for vertex {}", vertex_id);
+    let mut offset_index = *offset_array.get(vertex_id).unwrap();
+    let mut incident_edges: Vec<&Edge> = Vec::new();
+
+    let mut start_vertex;
+
+    if let Some(edge) = edges.get(offset_index) {
+        start_vertex = edge.start_vertex;
+    } else {
+        return Vec::new();
+    }
+
+    while start_vertex == vertex_id {
+        if let Some(incident_edge) = edges.get(offset_index) {
+            incident_edges.push(incident_edge);
+            offset_index += 1;
+            if let Some(new_edge) = edges.get(offset_index) {
+                start_vertex = new_edge.start_vertex;
+            } else {
+                break;
+            }
+        }
+    }
+
+    incident_edges 
 }
 
 fn get_neighbour_ids(vertex_id: usize, offset_array: &Vec<usize>, edges: &Vec<Edge>) -> Vec<usize> {
@@ -176,7 +252,7 @@ fn get_neighbour_ids(vertex_id: usize, offset_array: &Vec<usize>, edges: &Vec<Ed
         if let Some(new_edge) = edges.get(offset_index) {
             start_vertex = new_edge.start_vertex;
         } else {
-            break
+            break;
         }
     }
 

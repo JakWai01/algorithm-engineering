@@ -1,6 +1,7 @@
 use std::{
-    cmp::Ordering, collections::{BinaryHeap, HashMap, HashSet}, env, fs::File, io::{self, BufRead}, path::Path
+    cmp::Ordering, collections::{BinaryHeap, HashMap, HashSet}, env, fs::File, io::{self, BufRead}, path::Path, time::{self, Instant}
 };
+use rand::Rng;
 
 // Consider using usizes in all fields
 #[derive(Debug)]
@@ -118,6 +119,8 @@ fn main() {
     // Finding connected components of a graph using DFS
     // All vertices are initially initialized with a marker value of 0 which can be interpreted as
     // the component not being marked
+
+    let now_cc = Instant::now();
     let mut c: usize = 0;
 
     let mut visited: HashSet<usize> = HashSet::new();
@@ -125,15 +128,27 @@ fn main() {
     for v in vertices.values().into_iter() {
         if !visited.contains(&v.id) {
             c += 1;
-            dfs(v, &mut visited, &offset_array, &edges);
+            dfs(v.id, &mut visited, &offset_array, &edges);
         }
     }
-
-    println!("Number of connected components {}", c);
+    let elapsed_cc = now_cc.elapsed();
+    println!("Number of connected components {} took {} ms to execute", c, elapsed_cc.as_millis());
 
     let start_node = vertices.get(&0).unwrap();
-    let distances = dijkstra(start_node, &vertices, &offset_array, &edges);
-    println!("distances: {:?}", distances);
+    
+    let now = Instant::now();
+
+    for _ in 0..100 {
+        let start_node = rand::thread_rng().gen_range(0..num_vertices);
+        let target_node = rand::thread_rng().gen_range(0..num_vertices);
+        let distance = dijkstra(start_node, &vertices, &offset_array, &edges, target_node);
+    }
+    
+    let elapsed_time = now.elapsed();
+    println!("Running dijkstra took {} ms to execute", elapsed_time.as_millis());
+    // println!("Distance {}", distance);
+    
+    // println!("distances: {:?}", distances);
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -156,11 +171,11 @@ impl PartialOrd for PQEntry {
 
 // In order to get c(), just return neighbours instead of neighbour_ids.
 // Like this, we can avoid additional lookups
-fn dijkstra(s: &Vertex, vertices: &HashMap<usize, Vertex>, offset_array: &Vec<usize>, edges: &Vec<Edge>) -> Vec<usize> {
+fn dijkstra(start_node: usize, vertices: &HashMap<usize, Vertex>, offset_array: &Vec<usize>, edges: &Vec<Edge>, target_node: usize) -> usize {
     let mut dist: Vec<usize> = (0..vertices.len()).map(|_| usize::MAX).collect();
     let mut pq: BinaryHeap<PQEntry> = BinaryHeap::new();
 
-    dist[s.id] = 0;
+    dist[start_node] = 0;
 
     for (id, _vertex) in vertices {
         // TODO: Don't push infinity into the PQ
@@ -171,6 +186,8 @@ fn dijkstra(s: &Vertex, vertices: &HashMap<usize, Vertex>, offset_array: &Vec<us
         // println!("Distances: {:?}", dist);
         // println!("Popped PQ entry with distance: {}", distance);
         // println!("PQ: {:?}", pq);
+        if vertex == target_node { return distance };
+
         for incident_edge in get_incident_edges(vertex, offset_array, edges) {
             let neighbour_id = incident_edge.end_vertex;
             // println!("dist[neighbour_id]: {}, dist[vertex]: {}, incident_edge.weight: {}", dist[neighbour_id], dist[vertex], incident_edge.weight);
@@ -182,14 +199,14 @@ fn dijkstra(s: &Vertex, vertices: &HashMap<usize, Vertex>, offset_array: &Vec<us
         }
     }
 
-    dist
+    panic!("There is no path to the node")
 }
 
-fn dfs(v: &Vertex, visited: &mut HashSet<usize>, offset_array: &Vec<usize>, edges: &Vec<Edge>) {
+fn dfs(start_node: usize, visited: &mut HashSet<usize>, offset_array: &Vec<usize>, edges: &Vec<Edge>) {
     let mut stack = Vec::new();
 
-    stack.push(v.id);
-    visited.insert(v.id);
+    stack.push(start_node);
+    visited.insert(start_node);
 
     while !stack.is_empty() {
         if let Some(current_vertex) = stack.pop() {

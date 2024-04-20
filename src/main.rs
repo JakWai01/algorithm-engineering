@@ -25,8 +25,9 @@ struct Edge {
 fn main() {
     let args: Vec<String> = env::args().collect();
     let file_path: &String = &args[1];
+    let dijkstra_pairs_file_path: &String = &args[1];
 
-    println!("In file {}", file_path);
+    println!("Reading graph from file: {}", file_path);
 
     let mut lines = read_lines(file_path).unwrap();
     for _ in 0..5 {
@@ -47,12 +48,19 @@ fn main() {
         if let Some(line) = lines.next() {
             let l = line.unwrap();
             let mut iter = l.split_whitespace();
+
+            let id = iter.next().unwrap().parse().unwrap();
+            let osm_id = iter.next().unwrap().parse().unwrap();
+            let lon = iter.next().unwrap().parse().unwrap();
+            let lat = iter.next().unwrap().parse().unwrap();
+            let height = iter.next().unwrap().parse().unwrap();
+
             let vertex = Vertex {
-                id: iter.next().unwrap().parse().unwrap(),
-                osm_id: iter.next().unwrap().parse().unwrap(),
-                lon: iter.next().unwrap().parse().unwrap(),
-                lat: iter.next().unwrap().parse().unwrap(),
-                height: iter.next().unwrap().parse().unwrap(),
+                id,
+                osm_id,
+                lon,
+                lat,
+                height,
             };
             vertices.insert(vertex.id, vertex);
         }
@@ -70,29 +78,29 @@ fn main() {
             let max_speed = iter.next().unwrap().parse().unwrap();
 
             let edge = Edge {
-                start_vertex: start_vertex,
-                end_vertex: end_vertex,
-                weight: weight,
-                typ: typ,
-                max_speed: max_speed,
+                start_vertex,
+                end_vertex,
+                weight,
+                typ,
+                max_speed,
             };
             edges.push(edge);
             
             let edge_cc = Edge {
-                start_vertex: start_vertex,
-                end_vertex: end_vertex,
-                weight: weight,
-                typ: typ,
-                max_speed: max_speed,
+                start_vertex,
+                end_vertex,
+                weight,
+                typ,
+                max_speed,
             };
             edges_cc.push(edge_cc);
 
             let back_edge_cc = Edge {
                 start_vertex: end_vertex,
                 end_vertex: start_vertex,
-                weight: weight,
-                typ: typ,
-                max_speed: max_speed,
+                weight,
+                typ,
+                max_speed,
             };
             edges_cc.push(back_edge_cc);
         }
@@ -102,8 +110,18 @@ fn main() {
     edges.sort_by_key(|edge| edge.start_vertex);
     edges_cc.sort_by_key(|edge| edge.start_vertex);
 
-    // println!("Vertices {:?}", vertices);
-    // println!("Edges {:?}", edges);
+    // Read dijkstra source-target pairs
+    println!("Reading source-target pairs from file: {}", dijkstra_pairs_file_path);
+    let mut pair_lines = read_lines(dijkstra_pairs_file_path).unwrap();
+    let mut source_target_tuples: Vec<(usize, usize)> = Vec::new();
+
+    while let Some(line) = pair_lines.next() {
+        let l = line.unwrap();
+        let mut iter = l.split_whitespace();
+        
+        let source_target_tuple = (iter.next().unwrap().parse::<usize>().unwrap(), iter.next().unwrap().parse::<usize>().unwrap());
+        source_target_tuples.push(source_target_tuple)
+    }
 
     // num_edges != edges.len() since we are converting the edges to an undirected graph
     // by inserting the edges another time in reverse direction
@@ -159,8 +177,7 @@ fn main() {
     println!("Number of connected components {} took {} ms to execute", c, elapsed_cc.as_millis());
 
     
-    let mut random_node_tuples: Vec<(usize, usize)> = Vec::new();
-
+    // let mut random_node_tuples: Vec<(usize, usize)> = Vec::new();
     // for _ in 0..100 {
     //     let start = rand::thread_rng().gen_range(0..num_vertices);
     //     let target = rand::thread_rng().gen_range(0..num_vertices);
@@ -169,16 +186,19 @@ fn main() {
         
     let mut path_finding = Dijkstra::new(&vertices, &offset_array, &edges);
     
-    let now = Instant::now();
-    // for i in random_node_tuples {
-    //     let distance = path_finding.query(i.0, i.1);
-    //     println!("Distance from {} to {}: {}", i.0, i.1, distance);
-    // }
-    let distance = path_finding.query(377371, 754742); // should return 5
-    println!("Distance from {} to {}: {}", 377371, 754742, distance); 
-    let elapsed_time = now.elapsed();
+    let mut file_write = File::create("output").expect("Cannot create file");
+
+    for i in source_target_tuples {
+        let now = Instant::now();
+        let distance = path_finding.query(i.0, i.1);
+        let elapsed_time = now.elapsed();
+        println!("{} {} {} {}", i.0, i.1, distance, elapsed_time.as_millis());
+        writeln!(file_write, "{}", format!("{} {} {} {}", i.0, i.1, distance, elapsed_time.as_millis())).expect("Cannot write to file");
+    }
+    // let distance = path_finding.query(377371, 754742); // should return 5
+    // println!("Distance from {} to {}: {}", 377371, 754742, distance); 
     
-    println!("Running dijkstra took {} ms to execute", elapsed_time.as_millis());
+    // println!("Running dijkstra took {} ms to execute", elapsed_time.as_millis());
     // println!("Distance {}", distance);
     
     // println!("distances: {:?}", distances);
@@ -242,7 +262,7 @@ impl<'a> Dijkstra<'a> {
                 }
             } 
         }
-        0
+        usize::MAX
     }
 }
 

@@ -41,6 +41,7 @@ fn main() {
 
     let mut vertices = HashMap::new();
     let mut edges: Vec<Edge> = Vec::new();
+    let mut edges_cc: Vec<Edge> = Vec::new();
 
     for _ in 0..num_vertices {
         if let Some(line) = lines.next() {
@@ -76,24 +77,38 @@ fn main() {
                 max_speed: max_speed,
             };
             edges.push(edge);
+            
+            let edge_cc = Edge {
+                start_vertex: start_vertex,
+                end_vertex: end_vertex,
+                weight: weight,
+                typ: typ,
+                max_speed: max_speed,
+            };
+            edges_cc.push(edge_cc);
 
-            let back_edge = Edge {
+            let back_edge_cc = Edge {
                 start_vertex: end_vertex,
                 end_vertex: start_vertex,
                 weight: weight,
                 typ: typ,
                 max_speed: max_speed,
             };
-            edges.push(back_edge);
+            edges_cc.push(back_edge_cc);
         }
     }
 
     // Sort by starting node in order to get offset array
     edges.sort_by_key(|edge| edge.start_vertex);
+    edges_cc.sort_by_key(|edge| edge.start_vertex);
+
+    // println!("Vertices {:?}", vertices);
+    // println!("Edges {:?}", edges);
 
     // num_edges != edges.len() since we are converting the edges to an undirected graph
     // by inserting the edges another time in reverse direction
     let mut offset_array: Vec<usize> = vec![edges.len(); num_vertices + 1];
+    let mut offset_array_cc: Vec<usize> = vec![edges_cc.len(); num_vertices + 1];
 
     // Initialize variables
     let mut previous_vertex_id = 0;
@@ -111,10 +126,24 @@ fn main() {
         }
     }
 
+    let mut previous_vertex_id_cc = 0;
+    offset_array_cc[0] = 0;
+
+    // If the the start_vertex changes in the edges vector, store the offset in the offset vector
+    // and set this offset for all start_vertex id's that have been skipped in this last step.
+    // However, I am not sure if this case even occurs in our road network.
+    for (edge_index, edge) in edges_cc.iter().enumerate() {
+        if edge.start_vertex != previous_vertex_id_cc {
+            for j in previous_vertex_id_cc + 1..=edge.start_vertex {
+                offset_array_cc[j] = edge_index;
+            }
+            previous_vertex_id_cc = edge.start_vertex;
+        }
+    }
+
     // Finding connected components of a graph using DFS
     // All vertices are initially initialized with a marker value of 0 which can be interpreted as
     // the component not being marked
-
     let now_cc = Instant::now();
     let mut c: usize = 0;
 
@@ -123,7 +152,7 @@ fn main() {
     for v in vertices.values() {
         if !visited.contains(&v.id) {
             c += 1;
-            dfs(v.id, &mut visited, &offset_array, &edges);
+            dfs(v.id, &mut visited, &offset_array_cc, &edges_cc);
         }
     }
     let elapsed_cc = now_cc.elapsed();
@@ -145,8 +174,8 @@ fn main() {
     //     let distance = path_finding.query(i.0, i.1);
     //     println!("Distance from {} to {}: {}", i.0, i.1, distance);
     // }
-    let distance = path_finding.query(377376, 754742); // should return 437160
-    println!("Distance from {} to {}: {}", 377376, 754742, distance); 
+    let distance = path_finding.query(377371, 754742); // should return 5
+    println!("Distance from {} to {}: {}", 377371, 754742, distance); 
     let elapsed_time = now.elapsed();
     
     println!("Running dijkstra took {} ms to execute", elapsed_time.as_millis());

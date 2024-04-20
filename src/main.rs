@@ -53,7 +53,6 @@ fn main() {
                 lat: iter.next().unwrap().parse().unwrap(),
                 height: iter.next().unwrap().parse().unwrap(),
             };
-            // We don't need to store the whole vertex, lon and lat should be sufficient
             vertices.insert(vertex.id, vertex);
         }
     }
@@ -94,7 +93,7 @@ fn main() {
 
     // num_edges != edges.len() since we are converting the edges to an undirected graph
     // by inserting the edges another time in reverse direction
-    let mut offset_array: Vec<usize> = vec![edges.len(); num_vertices];
+    let mut offset_array: Vec<usize> = vec![edges.len(); num_vertices + 1];
 
     // Initialize variables
     let mut previous_vertex_id = 0;
@@ -146,8 +145,8 @@ fn main() {
     //     let distance = path_finding.query(i.0, i.1);
     //     println!("Distance from {} to {}: {}", i.0, i.1, distance);
     // }
-    let distance = path_finding.query(377371, 754743);
-    println!("Distance from {} to {}: {}", 377371, 754743, distance);
+    let distance = path_finding.query(377376, 754742); // should return 437160
+    println!("Distance from {} to {}: {}", 377376, 754742, distance); 
     let elapsed_time = now.elapsed();
     
     println!("Running dijkstra took {} ms to execute", elapsed_time.as_millis());
@@ -206,13 +205,13 @@ impl<'a> Dijkstra<'a> {
         while let Some(PQEntry{ distance, vertex }) = self.pq.pop() {
             if vertex == target_node { return distance };
 
-            for incident_edge in get_incident_edges(vertex, self.offset_array, self.edges) {
-                let neighbour_id = incident_edge.end_vertex;
-                if self.dist[neighbour_id] > self.dist[vertex] + incident_edge.weight {
-                    self.dist[neighbour_id] = self.dist[vertex] + incident_edge.weight;
-                    self.pq.push(PQEntry{ distance: self.dist[vertex] + incident_edge.weight, vertex: neighbour_id});
+            for j in self.offset_array[vertex]..self.offset_array[vertex+1] {
+                let edge = self.edges.get(j).unwrap();
+                if self.dist[edge.end_vertex] > self.dist[vertex] + edge.weight {
+                    self.dist[edge.end_vertex] = self.dist[vertex] + edge.weight;
+                    self.pq.push(PQEntry{ distance: self.dist[vertex] + edge.weight, vertex: edge.end_vertex});
                 }
-            }
+            } 
         }
         0
     }
@@ -226,43 +225,15 @@ fn dfs(start_node: usize, visited: &mut HashSet<usize>, offset_array: &Vec<usize
 
     while !stack.is_empty() {
         if let Some(current_vertex) = stack.pop() {
-            for incident_edge in get_incident_edges(current_vertex, offset_array, edges) {
-                if !visited.contains(&incident_edge.end_vertex) {
-                    stack.push(incident_edge.end_vertex);
-                    visited.insert(incident_edge.end_vertex);
+            for j in offset_array[current_vertex]..offset_array[current_vertex+1] {
+                let edge = edges.get(j).unwrap();
+                if !visited.contains(&edge.end_vertex) {
+                    stack.push(edge.end_vertex);
+                    visited.insert(edge.end_vertex);
                 }
             }
         }
     }
-}
-
-// Use get_incident_edges for everything in order to simplify code
-fn get_incident_edges<'a>(vertex_id: usize, offset_array: &Vec<usize>, edges: &'a Vec<Edge>) -> Vec<&'a Edge> {
-    // println!("Get neighbours for vertex {}", vertex_id);
-    let mut offset_index = *offset_array.get(vertex_id).unwrap();
-    let mut incident_edges: Vec<&Edge> = Vec::new();
-
-    let mut start_vertex;
-
-    if let Some(edge) = edges.get(offset_index) {
-        start_vertex = edge.start_vertex;
-    } else {
-        return Vec::new();
-    }
-
-    while start_vertex == vertex_id {
-        if let Some(incident_edge) = edges.get(offset_index) {
-            incident_edges.push(incident_edge);
-            offset_index += 1;
-            if let Some(new_edge) = edges.get(offset_index) {
-                start_vertex = new_edge.start_vertex;
-            } else {
-                break;
-            }
-        }
-    }
-
-    incident_edges 
 }
 
 // The output is wrapped in a Result to allow matching on errors.

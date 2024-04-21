@@ -10,7 +10,7 @@
 **Laufzeit Zusammenhangskomponenten**:  11863ms (25246 Komponenten)
 **Laufzeit 100 random source-target pairs**: 377073ms
 
-## Output (Deutschland stgtregbz.tab queries)
+## Output (Stuttgart stgtregbz.tab) 
 
 ```
 Reading graph from file: /home/jakob/Documents/master/algorithm-engineering/exercises/01/stgtregbz.fmi

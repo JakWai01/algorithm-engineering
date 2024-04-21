@@ -1,5 +1,27 @@
 # Algorithm Engineering Exercise 1
 
+## Usage
+
+### Die optimierte Binary bauen 
+
+Im Hauptverzeichnis den folgenden Befehl ausführen
+
+```
+cargo b --release
+```
+
+### Ausführen
+
+```
+./target/release/algorithm-engineering <graph e.g. stgtregbz.fmi> <source-target-tuples e.g. examples/input_stg>
+```
+
+Im Hauptverzeichnis den folgenden Befehl ausfüHauptverzeichnis
+
+```
+
+```
+
 ## Benchmarks (Regierungsbezirk Stuttgart)
 
 **Laufzeit Zusammenhangskomponenten**: 393ms (1385 Komponenten)

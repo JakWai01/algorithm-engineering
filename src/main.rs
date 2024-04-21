@@ -1,7 +1,6 @@
 use std::{
     cmp::Ordering, collections::{BinaryHeap, HashMap, HashSet}, env, fs::File, io::{self, BufRead}, path::Path, time::{self, Instant}, io::{Write, Error}
 };
-use rand::Rng;
 
 // Consider using usizes in all fields
 #[derive(Debug)]
@@ -176,14 +175,6 @@ fn main() {
     let elapsed_cc = now_cc.elapsed();
     println!("Number of connected components {} took {} ms to execute", c, elapsed_cc.as_millis());
 
-    
-    let mut random_node_tuples: Vec<(usize, usize)> = Vec::new();
-    for _ in 0..100 {
-        let start = rand::thread_rng().gen_range(0..num_vertices);
-        let target = rand::thread_rng().gen_range(0..num_vertices);
-        random_node_tuples.push((start, target));
-    }
-        
     let mut path_finding = Dijkstra::new(&vertices, &offset_array, &edges);
     
     let mut text: String = "".to_string();

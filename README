@@ -12,14 +12,10 @@ cargo b --release
 
 ### Ausführen
 
-```
-./target/release/algorithm-engineering <graph e.g. stgtregbz.fmi> <source-target-tuples e.g. examples/input_stg>
-```
-
 Im Hauptverzeichnis den folgenden Befehl ausfüHauptverzeichnis
 
 ```
-
+./target/release/algorithm-engineering <graph e.g. stgtregbz.fmi> <source-target-tuples e.g. examples/input_stg>
 ```
 
 ## Benchmarks (Regierungsbezirk Stuttgart)

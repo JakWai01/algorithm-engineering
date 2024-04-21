@@ -4,6 +4,12 @@
 
 ### Die optimierte Binary bauen 
 
+Rust installieren
+
+```
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
 Im Hauptverzeichnis den folgenden Befehl ausführen
 
 ```

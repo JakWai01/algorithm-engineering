@@ -1,5 +1,5 @@
 use std::{
-    cmp::Ordering, collections::{BinaryHeap, HashMap, HashSet}, env, fs::File, io::{self, BufRead}, path::Path, time::{self, Instant}
+    cmp::Ordering, collections::{BinaryHeap, HashMap, HashSet}, env, fs::File, io::{self, BufRead}, path::Path, time::{self, Instant}, io::{Write, Error}
 };
 use rand::Rng;
 
@@ -25,7 +25,7 @@ struct Edge {
 fn main() {
     let args: Vec<String> = env::args().collect();
     let file_path: &String = &args[1];
-    let dijkstra_pairs_file_path: &String = &args[1];
+    let dijkstra_pairs_file_path: &String = &args[2];
 
     println!("Reading graph from file: {}", file_path);
 
@@ -112,10 +112,10 @@ fn main() {
 
     // Read dijkstra source-target pairs
     println!("Reading source-target pairs from file: {}", dijkstra_pairs_file_path);
-    let mut pair_lines = read_lines(dijkstra_pairs_file_path).unwrap();
+    let pair_lines = read_lines(dijkstra_pairs_file_path).unwrap();
     let mut source_target_tuples: Vec<(usize, usize)> = Vec::new();
-
-    while let Some(line) = pair_lines.next() {
+    
+    for line in pair_lines {
         let l = line.unwrap();
         let mut iter = l.split_whitespace();
         
@@ -177,31 +177,29 @@ fn main() {
     println!("Number of connected components {} took {} ms to execute", c, elapsed_cc.as_millis());
 
     
-    // let mut random_node_tuples: Vec<(usize, usize)> = Vec::new();
-    // for _ in 0..100 {
-    //     let start = rand::thread_rng().gen_range(0..num_vertices);
-    //     let target = rand::thread_rng().gen_range(0..num_vertices);
-    //     random_node_tuples.push((start, target));
-    // }
+    let mut random_node_tuples: Vec<(usize, usize)> = Vec::new();
+    for _ in 0..100 {
+        let start = rand::thread_rng().gen_range(0..num_vertices);
+        let target = rand::thread_rng().gen_range(0..num_vertices);
+        random_node_tuples.push((start, target));
+    }
         
     let mut path_finding = Dijkstra::new(&vertices, &offset_array, &edges);
     
-    let mut file_write = File::create("output").expect("Cannot create file");
-
+    let mut text: String = "".to_string();
+    
     for i in source_target_tuples {
         let now = Instant::now();
         let distance = path_finding.query(i.0, i.1);
         let elapsed_time = now.elapsed();
+        text.push_str(format!("{} {} {} {}\n", i.0, i.1, distance, elapsed_time.as_millis()).as_str());
         println!("{} {} {} {}", i.0, i.1, distance, elapsed_time.as_millis());
-        writeln!(file_write, "{}", format!("{} {} {} {}", i.0, i.1, distance, elapsed_time.as_millis())).expect("Cannot write to file");
     }
-    // let distance = path_finding.query(377371, 754742); // should return 5
-    // println!("Distance from {} to {}: {}", 377371, 754742, distance); 
     
-    // println!("Running dijkstra took {} ms to execute", elapsed_time.as_millis());
-    // println!("Distance {}", distance);
-    
-    // println!("distances: {:?}", distances);
+    let path = "output";
+
+    let mut output = File::create(path).unwrap();
+    write!(output, "{}", text).unwrap();
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]

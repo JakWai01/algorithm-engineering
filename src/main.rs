@@ -8,7 +8,7 @@ use std::{
 };
 
 // Consider using usizes in all fields
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 struct Vertex {
     id: usize,
     osm_id: usize,
@@ -18,7 +18,7 @@ struct Vertex {
     level: usize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 struct Edge {
     start_vertex: usize,
     end_vertex: usize,
@@ -32,7 +32,6 @@ struct Edge {
 fn main() {
     let args: Vec<String> = env::args().collect();
     let file_path: &String = &args[1];
-    // let dijkstra_pairs_file_path: &String = &args[2];
 
     println!("Reading graph from file: {}", file_path);
 
@@ -101,116 +100,57 @@ fn main() {
         }
     }
 
-    let (mut upwards_edges, mut downwards_edges): (Vec<Edge>, Vec<Edge>) =
+    let (mut upward_edges, mut downward_edges): (Vec<Edge>, Vec<Edge>) =
         edges.drain(..).partition(|edge| {
             vertices[edge.start_vertex].level
                 < vertices[edge.end_vertex].level
         });
 
-    println!("First downwards edge: {:?}", downwards_edges[0]);
-
-    downwards_edges.iter_mut().for_each(|edge| {
+    downward_edges.iter_mut().for_each(|edge| {
         let tmp = edge.start_vertex;
         edge.start_vertex = edge.end_vertex;
         edge.end_vertex = tmp;
     });
 
-    println!("Flipped downwards edge: {:?}", downwards_edges[0]);
+    let mut predecessor_upward_edges = upward_edges.clone();
+    let mut predecessor_downward_edges = downward_edges.clone();
 
-    // Sort by starting node in order to get offset array
-    upwards_edges.sort_by_key(|edge| edge.start_vertex);
-    downwards_edges.sort_by_key(|edge| edge.start_vertex);
+    predecessor_upward_edges.sort_by_key(|edge| edge.end_vertex);
+    predecessor_downward_edges.sort_by_key(|edge| edge.end_vertex);
 
-    println!("First vertex: {:?}", vertices[0]);
-    println!("First vertex: {:?}", vertices[1104356]);
-    println!("First vertex: {:?}", vertices[1104362]);
-    println!("First upwards edge: {:?}", upwards_edges[0]);
-    // Read dijkstra source-target pairs
-    // println!("Reading source-target pairs from file: {}", dijkstra_pairs_file_path);
-    // let pair_lines = read_lines(dijkstra_pairs_file_path).unwrap();
-    // let mut source_target_tuples: Vec<(usize, usize)> = Vec::new();
-    //
-    // for line in pair_lines {
-    //     let l = line.unwrap();
-    //     let mut iter = l.split_whitespace();
-    //
-    //     let source_target_tuple = (iter.next().unwrap().parse::<usize>().unwrap(), iter.next().unwrap().parse::<usize>().unwrap());
-    //     source_target_tuples.push(source_target_tuple)
-    // }
+    upward_edges.sort_by_key(|edge| edge.start_vertex);
+    downward_edges.sort_by_key(|edge| edge.start_vertex);
 
-    // num_edges != edges.len() since we are converting the edges to an undirected graph
-    // by inserting the edges another time in reverse direction
-    let mut upwards_offset_array: Vec<usize> = vec![upwards_edges.len(); num_vertices + 1];
+    let upward_offset_array: Vec<usize> = create_offset_array(upward_edges, num_vertices);
+    println!("{:?}", &upward_offset_array[0..10]);
+
+    let downward_offset_array: Vec<usize> = create_offset_array(downward_edges, num_vertices);
+    println!("{:?}", &downward_offset_array[0..10]);
+
+    // Die Indizes hier sind wahrscheinlich recht komisch
+    let predecessor_upward_offset_array: Vec<usize> = create_offset_array(predecessor_upward_edges, num_vertices);
+    println!("{:?}", &predecessor_upward_offset_array[0..10]);
+}
+
+fn create_offset_array(edges: Vec<Edge>, num_vertices: usize) -> Vec<usize> {
+    let mut offset_array: Vec<usize> = vec![edges.len(); num_vertices + 1];
 
     // Initialize variables
     let mut previous_vertex_id = 0;
-    upwards_offset_array[0] = 0;
+    offset_array[0] = 0;
 
     // If the the start_vertex changes in the edges vector, store the offset in the offset vector
     // and set this offset for all start_vertex id's that have been skipped in this last step.
     // However, I am not sure if this case even occurs in our road network.
-    for (edge_index, edge) in upwards_edges.iter().enumerate() {
+    for (edge_index, edge) in edges.iter().enumerate() {
         if edge.start_vertex != previous_vertex_id {
             for j in previous_vertex_id + 1..=edge.start_vertex {
-                upwards_offset_array[j] = edge_index;
+                offset_array[j] = edge_index;
             }
             previous_vertex_id = edge.start_vertex;
         }
     }
-
-    // num_edges != edges.len() since we are converting the edges to an undirected graph
-    // by inserting the edges another time in reverse direction
-    let mut downwards_offset_array: Vec<usize> = vec![downwards_edges.len(); num_vertices + 1];
-
-    // Initialize variables
-    let mut previous_vertex_id = 0;
-    downwards_offset_array[0] = 0;
-
-    // If the the start_vertex changes in the edges vector, store the offset in the offset vector
-    // and set this offset for all start_vertex id's that have been skipped in this last step.
-    // However, I am not sure if this case even occurs in our road network.
-    for (edge_index, edge) in downwards_edges.iter().enumerate() {
-        if edge.start_vertex != previous_vertex_id {
-            for j in previous_vertex_id + 1..=edge.start_vertex {
-                upwards_offset_array[j] = edge_index;
-            }
-            previous_vertex_id = edge.start_vertex;
-        }
-    }
-
-    // Finding connected components of a graph using DFS
-    // All vertices are initially initialized with a marker value of 0 which can be interpreted as
-    // the component not being marked
-    // let now_cc = Instant::now();
-    // let mut c: usize = 0;
-
-    // let mut visited: HashSet<usize> = HashSet::new();
-
-    // for v in vertices.values() {
-    //     if !visited.contains(&v.id) {
-    //         c += 1;
-    //         dfs(v.id, &mut visited, &offset_array_cc, &edges_cc);
-    //     }
-    // }
-    // let elapsed_cc = now_cc.elapsed();
-    // println!("Number of connected components {} took {} ms to execute", c, elapsed_cc.as_millis());
-
-    // let _path_finding = Dijkstra::new(&vertices, &offset_array, &edges);
-
-    // let mut text: String = "".to_string();
-
-    // for i in source_target_tuples {
-    //     let now = Instant::now();
-    //     let distance = path_finding.query(i.0, i.1);
-    //     let elapsed_time = now.elapsed();
-    //     text.push_str(format!("{} {} {} {}\n", i.0, i.1, distance, elapsed_time.as_millis()).as_str());
-    //     println!("{} {} {} {}", i.0, i.1, distance, elapsed_time.as_millis());
-    // }
-
-    // let path = "output";
-
-    // let mut output = File::create(path).unwrap();
-    // write!(output, "{}", text).unwrap();
+    offset_array
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]

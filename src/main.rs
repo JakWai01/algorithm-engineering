@@ -47,7 +47,7 @@ fn main() {
     println!("Number of vertices: {}", num_vertices);
     println!("Number of edges: {}", num_edges);
 
-    let mut vertices = HashMap::new();
+    let mut vertices = Vec::new();
     let mut edges: Vec<Edge> = Vec::new();
 
     for _ in 0..num_vertices {
@@ -70,7 +70,8 @@ fn main() {
                 height,
                 level,
             };
-            vertices.insert(vertex.id, vertex);
+            // This is kind of risky and only works if the id are ascending and sorted
+            vertices.push(vertex);
         }
     }
 
@@ -102,8 +103,8 @@ fn main() {
 
     let (mut upwards_edges, mut downwards_edges): (Vec<Edge>, Vec<Edge>) =
         edges.drain(..).partition(|edge| {
-            vertices.get(&edge.start_vertex).unwrap().level
-                < vertices.get(&edge.end_vertex).unwrap().level
+            vertices[edge.start_vertex].level
+                < vertices[edge.end_vertex].level
         });
 
     println!("First downwards edge: {:?}", downwards_edges[0]);
@@ -120,9 +121,9 @@ fn main() {
     upwards_edges.sort_by_key(|edge| edge.start_vertex);
     downwards_edges.sort_by_key(|edge| edge.start_vertex);
 
-    println!("First vertex: {:?}", vertices.get(&0));
-    println!("First vertex: {:?}", vertices.get(&1104356));
-    println!("First vertex: {:?}", vertices.get(&1104362));
+    println!("First vertex: {:?}", vertices[0]);
+    println!("First vertex: {:?}", vertices[1104356]);
+    println!("First vertex: {:?}", vertices[1104362]);
     println!("First upwards edge: {:?}", upwards_edges[0]);
     // Read dijkstra source-target pairs
     // println!("Reading source-target pairs from file: {}", dijkstra_pairs_file_path);
@@ -236,19 +237,23 @@ impl PartialOrd for PQEntry {
 struct Dijkstra<'a> {
     dist: Vec<usize>,
     pq: BinaryHeap<PQEntry>,
-    vertices: &'a HashMap<usize, Vertex>,
+    vertices: &'a Vec<Vertex>,
     offset_array: &'a Vec<usize>,
     edges: &'a Vec<Edge>,
+    // Currently I am storing the previous vertex, not the previous edge as recommended
+    // Why? Because my edges don't seem to have id's
+    predecessor_array: Vec<usize>,
 }
 
 impl<'a> Dijkstra<'a> {
     fn new(
-        vertices: &'a HashMap<usize, Vertex>,
+        vertices: &'a Vec<Vertex>,
         offset_array: &'a Vec<usize>,
         edges: &'a Vec<Edge>,
     ) -> Self {
         let dist: Vec<usize> = (0..vertices.len()).map(|_| usize::MAX).collect();
         let pq: BinaryHeap<PQEntry> = BinaryHeap::new();
+        let predecessor_array = (0..vertices.len()).map(|_| usize::MAX).collect();
 
         Dijkstra {
             dist,
@@ -256,6 +261,7 @@ impl<'a> Dijkstra<'a> {
             vertices,
             offset_array,
             edges,
+            predecessor_array
         }
     }
 
@@ -282,6 +288,7 @@ impl<'a> Dijkstra<'a> {
                         distance: self.dist[vertex] + edge.weight,
                         vertex: edge.end_vertex,
                     });
+                    self.predecessor_array[edge.start_vertex];
                 }
             }
         }

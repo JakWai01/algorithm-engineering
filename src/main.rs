@@ -240,8 +240,7 @@ struct Dijkstra<'a> {
     vertices: &'a Vec<Vertex>,
     offset_array: &'a Vec<usize>,
     edges: &'a Vec<Edge>,
-    // Currently I am storing the previous vertex, not the previous edge as recommended
-    // Why? Because my edges don't seem to have id's
+    // We are storing a pointer (index) of the corresponding edge inside of the offset array
     predecessor_array: Vec<usize>,
 }
 
@@ -288,7 +287,9 @@ impl<'a> Dijkstra<'a> {
                         distance: self.dist[vertex] + edge.weight,
                         vertex: edge.end_vertex,
                     });
-                    self.predecessor_array[edge.start_vertex];
+                    // Store offset index inside of predecessor array
+                    // This should work in O(n)
+                    self.predecessor_array[edge.start_vertex] = j;
                 }
             }
         }

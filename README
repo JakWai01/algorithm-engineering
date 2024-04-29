@@ -257,6 +257,7 @@ Number of connected components 25246 took 11863 ms to execute
 
 ## Note 
 
+- Understand Contraction Hierarchies better. Will we automatically take the shortcut in favor of the normal edge although the path has the same weight in total?
 - Vorgängerkante statt Vorgängerknoten speichern
 - Von unendlich auf was kleineres -> Knoten in visited array und counter eins hoch. Was ist der Counter vom Visited array 
 - Extra array für Vorgänger

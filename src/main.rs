@@ -1,6 +1,6 @@
 use std::{
     cmp::Ordering,
-    collections::{BinaryHeap, HashMap, HashSet},
+    collections::{BinaryHeap, HashSet},
     env,
     fs::File,
     io::{self, BufRead},
@@ -20,6 +20,7 @@ struct Vertex {
 
 #[derive(Debug, Copy, Clone)]
 struct Edge {
+    id: usize,
     start_vertex: usize,
     end_vertex: usize,
     weight: usize,
@@ -74,7 +75,7 @@ fn main() {
         }
     }
 
-    for _ in 0..num_edges {
+    for id in 0..num_edges {
         if let Some(line) = lines.next() {
             let l = line.unwrap();
             let mut iter = l.split_whitespace();
@@ -88,6 +89,7 @@ fn main() {
             let edge_id_b = iter.next().unwrap().parse().unwrap();
 
             let edge = Edge {
+                id,
                 start_vertex,
                 end_vertex,
                 weight,
@@ -100,18 +102,23 @@ fn main() {
         }
     }
 
+    println!("First edge {:?}", edges[0]);
+
+    // Partition edges into upward-edges and downward-edges
     let (mut upward_edges, mut downward_edges): (Vec<Edge>, Vec<Edge>) =
         edges.drain(..).partition(|edge| {
             vertices[edge.start_vertex].level
                 < vertices[edge.end_vertex].level
         });
 
+    // Change the direction of the downward_edge to make them "upward_edges" as well
     downward_edges.iter_mut().for_each(|edge| {
         let tmp = edge.start_vertex;
         edge.start_vertex = edge.end_vertex;
         edge.end_vertex = tmp;
     });
 
+    // Create offset_array of predecessors as well
     let mut predecessor_upward_edges = upward_edges.clone();
     let mut predecessor_downward_edges = downward_edges.clone();
 
@@ -127,9 +134,31 @@ fn main() {
     let downward_offset_array: Vec<usize> = create_offset_array(downward_edges, num_vertices);
     println!("{:?}", &downward_offset_array[0..10]);
 
+    println!("Predecessor upwards edges: {:?}", &predecessor_upward_edges[0..10]);
     // Die Indizes hier sind wahrscheinlich recht komisch
-    let predecessor_upward_offset_array: Vec<usize> = create_offset_array(predecessor_upward_edges, num_vertices);
+    let predecessor_upward_offset_array: Vec<usize> = create_predecessor_offset_array(predecessor_upward_edges, num_vertices);
     println!("{:?}", &predecessor_upward_offset_array[0..10]);
+}
+
+fn create_predecessor_offset_array(edges: Vec<Edge>, num_vertices: usize) -> Vec<usize> {
+    let mut offset_array: Vec<usize> = vec![edges.len(); num_vertices + 1];
+
+    // Initialize variables
+    let mut previous_vertex_id = 0;
+    offset_array[0] = 0;
+
+    // If the the start_vertex changes in the edges vector, store the offset in the offset vector
+    // and set this offset for all start_vertex id's that have been skipped in this last step.
+    // However, I am not sure if this case even occurs in our road network.
+    for (edge_index, edge) in edges.iter().enumerate() {
+        if edge.end_vertex != previous_vertex_id {
+            for j in previous_vertex_id + 1..=edge.end_vertex {
+                offset_array[j] = edge_index;
+            }
+            previous_vertex_id = edge.end_vertex;
+        }
+    }
+    offset_array
 }
 
 fn create_offset_array(edges: Vec<Edge>, num_vertices: usize) -> Vec<usize> {

@@ -4,7 +4,7 @@ use std::{
     env,
     fs::File,
     io::{self, BufRead},
-    path::Path,
+    path::Path, time::Instant,
 };
 
 // Consider using usizes in all fields
@@ -134,29 +134,69 @@ fn main() {
     // let predecessor_downward_offset_array: Vec<usize> = create_predecessor_offset_array(predecessor_downward_edges, num_vertices);
 
     // Run bi-directional dijkstra
-    let mut path_finding = Dijkstra::new(&vertices, &upward_offset_array, &upward_edges);
-
-    let upward_distances = path_finding.ch_query(377371, 754742);
+    let mut upward_path_finding = Dijkstra::new(&vertices, &upward_offset_array, &upward_edges);
+    let mut downward_path_finding = Dijkstra::new(&vertices, &downward_offset_array, &downward_edges);
     
-    // println!("upwards_distances length {:?}", upward_distances.into_iter().filter(|x| *x != usize::MAX).collect::<Vec<usize>>());
+    let now = Instant::now();
 
-    let mut path_finding = Dijkstra::new(&vertices, &downward_offset_array, &downward_edges);
+    let start = 377371;
+    let target = 754742;
+    let (upward_distances, upward_distances_predecessors) = upward_path_finding.ch_query(start, target);
+    let (downward_distances, downward_distances_predecessors) = downward_path_finding.ch_query(target, start); 
 
-    let downward_distances = path_finding.ch_query(754742, 377371); 
-
-    // println!("downwards_distances length {:?}", downward_distances.into_iter().filter(|x| *x != usize::MAX).collect::<Vec<usize>>());
-
+    // Can we optimize this even further?
     let mut min = usize::MAX;
+    let mut current_min_node_id = usize::MAX;
     for i in 0..num_vertices {
         if downward_distances[i] != usize::MAX && upward_distances[i] != usize::MAX {
             if downward_distances[i] + upward_distances[i] < min {
                 min = downward_distances[i] + upward_distances[i];
+                current_min_node_id = i;
             }
         }
     }
 
+    let elapsed = now.elapsed();
+
     // desired 436627
-    println!("min: {}", min);
+    println!("min: {} - in time: {}", min, elapsed.as_millis());
+
+
+    // construct path from search
+    let mut upwards_path_node_id = current_min_node_id;
+    let mut upwards_path: Vec<usize> = Vec::new();
+    while upwards_path_node_id != start {
+        upwards_path.insert(0, upwards_path_node_id);
+        upwards_path_node_id = upward_distances_predecessors[upwards_path_node_id];
+    }
+    upwards_path.insert(0, start);
+
+    println!("Upwards path: {:?}", upwards_path);
+
+    // We should push here
+    let mut downwards_path_node_id = current_min_node_id;
+    let mut downwards_path: Vec<usize> = Vec::new();
+    while downwards_path_node_id != target {
+        downwards_path.push(downwards_path_node_id);
+        downwards_path_node_id = downward_distances_predecessors[downwards_path_node_id];
+    }
+    downwards_path.push(target);
+
+    println!("Downwards path: {:?}", downwards_path);
+    downwards_path.remove(0);
+
+    // Concatenate paths
+    upwards_path.append(&mut downwards_path);
+
+    println!("Final path: {:?}", upwards_path);
+    
+    // Resolve shortcuts back to original graph
+
+    // stall-on-demand
+
+    // phast
+
+    // arc flags
 }
 
 fn create_predecessor_offset_array(edges: Vec<Edge>, num_vertices: usize) -> Vec<usize> {
@@ -284,7 +324,7 @@ impl<'a> Dijkstra<'a> {
         usize::MAX
     }
 
-    fn ch_query(&mut self, start_node: usize, target_node: usize) -> Vec<usize> {
+    fn ch_query(&mut self, start_node: usize, target_node: usize) -> (Vec<usize>, Vec<usize>) {
             self.dist = (0..self.vertices.len()).map(|_| usize::MAX).collect();
             self.pq.clear();
 
@@ -310,12 +350,12 @@ impl<'a> Dijkstra<'a> {
                             });
                             // Store offset index inside of predecessor array
                             // This should work in O(n)
-                            self.predecessor_array[edge.start_vertex] = j;
+                            self.predecessor_array[edge.end_vertex] = edge.start_vertex;
                         }
                     }
                 }
             }
-            self.dist.clone()
+            (self.dist.clone(), self.predecessor_array.clone())
         }
 }
 

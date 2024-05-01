@@ -128,16 +128,35 @@ fn main() {
     upward_edges.sort_by_key(|edge| edge.start_vertex);
     downward_edges.sort_by_key(|edge| edge.start_vertex);
 
-    let upward_offset_array: Vec<usize> = create_offset_array(upward_edges, num_vertices);
-    println!("{:?}", &upward_offset_array[0..10]);
+    let upward_offset_array: Vec<usize> = create_offset_array(&upward_edges, num_vertices);
+    let downward_offset_array: Vec<usize> = create_offset_array(&downward_edges, num_vertices);
+    // let predecessor_upward_offset_array: Vec<usize> = create_predecessor_offset_array(predecessor_upward_edges, num_vertices);
+    // let predecessor_downward_offset_array: Vec<usize> = create_predecessor_offset_array(predecessor_downward_edges, num_vertices);
 
-    let downward_offset_array: Vec<usize> = create_offset_array(downward_edges, num_vertices);
-    println!("{:?}", &downward_offset_array[0..10]);
+    // Run bi-directional dijkstra
+    let mut path_finding = Dijkstra::new(&vertices, &upward_offset_array, &upward_edges);
 
-    println!("Predecessor upwards edges: {:?}", &predecessor_upward_edges[0..10]);
-    // Die Indizes hier sind wahrscheinlich recht komisch
-    let predecessor_upward_offset_array: Vec<usize> = create_predecessor_offset_array(predecessor_upward_edges, num_vertices);
-    println!("{:?}", &predecessor_upward_offset_array[0..10]);
+    let upward_distances = path_finding.ch_query(377371, 754742);
+    
+    // println!("upwards_distances length {:?}", upward_distances.into_iter().filter(|x| *x != usize::MAX).collect::<Vec<usize>>());
+
+    let mut path_finding = Dijkstra::new(&vertices, &downward_offset_array, &downward_edges);
+
+    let downward_distances = path_finding.ch_query(754742, 377371); 
+
+    // println!("downwards_distances length {:?}", downward_distances.into_iter().filter(|x| *x != usize::MAX).collect::<Vec<usize>>());
+
+    let mut min = usize::MAX;
+    for i in 0..num_vertices {
+        if downward_distances[i] != usize::MAX && upward_distances[i] != usize::MAX {
+            if downward_distances[i] + upward_distances[i] < min {
+                min = downward_distances[i] + upward_distances[i];
+            }
+        }
+    }
+
+    // desired 436627
+    println!("min: {}", min);
 }
 
 fn create_predecessor_offset_array(edges: Vec<Edge>, num_vertices: usize) -> Vec<usize> {
@@ -161,7 +180,7 @@ fn create_predecessor_offset_array(edges: Vec<Edge>, num_vertices: usize) -> Vec
     offset_array
 }
 
-fn create_offset_array(edges: Vec<Edge>, num_vertices: usize) -> Vec<usize> {
+fn create_offset_array(edges: &Vec<Edge>, num_vertices: usize) -> Vec<usize> {
     let mut offset_array: Vec<usize> = vec![edges.len(); num_vertices + 1];
 
     // Initialize variables
@@ -264,6 +283,40 @@ impl<'a> Dijkstra<'a> {
         }
         usize::MAX
     }
+
+    fn ch_query(&mut self, start_node: usize, target_node: usize) -> Vec<usize> {
+            self.dist = (0..self.vertices.len()).map(|_| usize::MAX).collect();
+            self.pq.clear();
+
+            self.dist[start_node] = 0;
+            self.pq.push(PQEntry {
+                distance: 0,
+                vertex: start_node,
+            });
+
+            while let Some(PQEntry { distance, vertex }) = self.pq.pop() {
+                // if vertex == target_node {
+                //     return distance;
+                // };
+
+                for j in self.offset_array[vertex]..self.offset_array[vertex + 1] {
+                    let edge = self.edges.get(j).unwrap();
+                    if self.vertices.get(edge.end_vertex).unwrap().level > self.vertices.get(edge.start_vertex).unwrap().level {
+                        if self.dist[edge.end_vertex] > self.dist[vertex] + edge.weight {
+                            self.dist[edge.end_vertex] = self.dist[vertex] + edge.weight;
+                            self.pq.push(PQEntry {
+                                distance: self.dist[vertex] + edge.weight,
+                                vertex: edge.end_vertex,
+                            });
+                            // Store offset index inside of predecessor array
+                            // This should work in O(n)
+                            self.predecessor_array[edge.start_vertex] = j;
+                        }
+                    }
+                }
+            }
+            self.dist.clone()
+        }
 }
 
 fn dfs(

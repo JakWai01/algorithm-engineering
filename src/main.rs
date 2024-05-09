@@ -7,7 +7,6 @@ use std::{
     path::Path, time::Instant,
 };
 
-// Consider using usizes in all fields
 #[derive(Debug, Copy, Clone)]
 struct Vertex {
     id: usize,
@@ -70,7 +69,6 @@ fn main() {
                 height,
                 level,
             };
-            // This is kind of risky and only works if the id are ascending and sorted
             vertices.push(vertex);
         }
     }
@@ -102,93 +100,72 @@ fn main() {
         }
     }
 
-    println!("First edge {:?}", edges[0]);
-
-    // Partition edges into upward-edges and downward-edges
-    let (mut upward_edges, mut downward_edges): (Vec<Edge>, Vec<Edge>) =
+    let (mut edges_up, mut edges_down): (Vec<Edge>, Vec<Edge>) =
         edges.drain(..).partition(|edge| {
             vertices[edge.start_vertex].level
                 < vertices[edge.end_vertex].level
         });
 
-    // Change the direction of the downward_edge to make them "upward_edges" as well
-    downward_edges.iter_mut().for_each(|edge| {
-        let tmp = edge.start_vertex;
-        edge.start_vertex = edge.end_vertex;
-        edge.end_vertex = tmp;
+    edges_down.iter_mut().for_each(|edge| {
+        std::mem::swap(&mut edge.start_vertex, &mut edge.end_vertex);
     });
 
     // Create offset_array of predecessors as well
-    let mut predecessor_upward_edges = upward_edges.clone();
-    let mut predecessor_downward_edges = downward_edges.clone();
+    let mut predecessor_upward_edges = edges_up.clone();
+    let mut predecessor_downward_edges = edges_down.clone();
 
     predecessor_upward_edges.sort_by_key(|edge| edge.end_vertex);
     predecessor_downward_edges.sort_by_key(|edge| edge.end_vertex);
 
-    upward_edges.sort_by_key(|edge| edge.start_vertex);
-    downward_edges.sort_by_key(|edge| edge.start_vertex);
+    edges_up.sort_by_key(|edge| edge.start_vertex);
+    edges_down.sort_by_key(|edge| edge.start_vertex);
 
-    let upward_offset_array: Vec<usize> = create_offset_array(&upward_edges, num_vertices);
-    let downward_offset_array: Vec<usize> = create_offset_array(&downward_edges, num_vertices);
-    // let predecessor_upward_offset_array: Vec<usize> = create_predecessor_offset_array(predecessor_upward_edges, num_vertices);
-    // let predecessor_downward_offset_array: Vec<usize> = create_predecessor_offset_array(predecessor_downward_edges, num_vertices);
+    let offset_array_up: Vec<usize> = create_offset_array(&edges_up, num_vertices);
+    let offset_array_down: Vec<usize> = create_offset_array(&edges_down, num_vertices); let predecessor_upward_offset_array: Vec<usize> = create_predecessor_offset_array(predecessor_upward_edges, num_vertices);
+    let predecessor_downward_offset_array: Vec<usize> = create_predecessor_offset_array(predecessor_downward_edges, num_vertices);
 
     // Run bi-directional dijkstra
-    let mut upward_path_finding = Dijkstra::new(&vertices, &upward_offset_array, &upward_edges);
-    let mut downward_path_finding = Dijkstra::new(&vertices, &downward_offset_array, &downward_edges);
-    
+    let mut path_finding = Dijkstra::new(&vertices, &offset_array_up, &offset_array_down, &edges_up, &edges_down);
+
     let now = Instant::now();
 
-    let start = 377371;
-    let target = 754742;
-    let (upward_distances, upward_distances_predecessors) = upward_path_finding.ch_query(start, target);
-    let (downward_distances, downward_distances_predecessors) = downward_path_finding.ch_query(target, start); 
-
-    // Can we optimize this even further?
-    let mut min = usize::MAX;
-    let mut current_min_node_id = usize::MAX;
-    for i in 0..num_vertices {
-        if downward_distances[i] != usize::MAX && upward_distances[i] != usize::MAX {
-            if downward_distances[i] + upward_distances[i] < min {
-                min = downward_distances[i] + upward_distances[i];
-                current_min_node_id = i;
-            }
-        }
-    }
+    let start_node = 377371;
+    let target_node = 754742;
+    let distance = path_finding.ch_query(start_node, target_node);
 
     let elapsed = now.elapsed();
-
+    
     // desired 436627
-    println!("min: {} - in time: {}", min, elapsed.as_millis());
-
-
-    // construct path from search
-    let mut upwards_path_node_id = current_min_node_id;
-    let mut upwards_path: Vec<usize> = Vec::new();
-    while upwards_path_node_id != start {
-        upwards_path.insert(0, upwards_path_node_id);
-        upwards_path_node_id = upward_distances_predecessors[upwards_path_node_id];
-    }
-    upwards_path.insert(0, start);
-
-    println!("Upwards path: {:?}", upwards_path);
-
-    // We should push here
-    let mut downwards_path_node_id = current_min_node_id;
-    let mut downwards_path: Vec<usize> = Vec::new();
-    while downwards_path_node_id != target {
-        downwards_path.push(downwards_path_node_id);
-        downwards_path_node_id = downward_distances_predecessors[downwards_path_node_id];
-    }
-    downwards_path.push(target);
-
-    println!("Downwards path: {:?}", downwards_path);
-    downwards_path.remove(0);
-
-    // Concatenate paths
-    upwards_path.append(&mut downwards_path);
-
-    println!("Final path: {:?}", upwards_path);
+    println!("distance: {} - in time: {}", distance, elapsed.as_millis());
+// 
+// 
+//     // construct path from search
+//     let mut upwards_path_node_id = current_min_node_id;
+//     let mut upwards_path: Vec<usize> = Vec::new();
+//     while upwards_path_node_id != start {
+//         upwards_path.insert(0, upwards_path_node_id);
+//         upwards_path_node_id = upward_distances_predecessors[upwards_path_node_id];
+//     }
+//     upwards_path.insert(0, start);
+// 
+//     println!("Upwards path: {:?}", upwards_path);
+// 
+//     // We should push here
+//     let mut downwards_path_node_id = current_min_node_id;
+//     let mut downwards_path: Vec<usize> = Vec::new();
+//     while downwards_path_node_id != target {
+//         downwards_path.push(downwards_path_node_id);
+//         downwards_path_node_id = downward_distances_predecessors[downwards_path_node_id];
+//     }
+//     downwards_path.push(target);
+// 
+//     println!("Downwards path: {:?}", downwards_path);
+//     downwards_path.remove(0);
+// 
+//     // Concatenate paths
+//     upwards_path.append(&mut downwards_path);
+// 
+//     println!("Final path: {:?}", upwards_path);
     
     // Resolve shortcuts back to original graph
 
@@ -263,124 +240,125 @@ impl PartialOrd for PQEntry {
 }
 
 struct Dijkstra<'a> {
-    dist: Vec<usize>,
-    pq: BinaryHeap<PQEntry>,
+    dist_up: Vec<usize>,
+    dist_down: Vec<usize>,
+    pq_up: BinaryHeap<PQEntry>,
+    pq_down: BinaryHeap<PQEntry>,
     vertices: &'a Vec<Vertex>,
-    offset_array: &'a Vec<usize>,
-    edges: &'a Vec<Edge>,
-    // We are storing a pointer (index) of the corresponding edge inside of the offset array
-    predecessor_array: Vec<usize>,
+    offset_array_up: &'a Vec<usize>,
+    offset_array_down: &'a Vec<usize>,
+    edges_up: &'a Vec<Edge>,
+    edges_down: &'a Vec<Edge>,
 }
 
 impl<'a> Dijkstra<'a> {
     fn new(
         vertices: &'a Vec<Vertex>,
-        offset_array: &'a Vec<usize>,
-        edges: &'a Vec<Edge>,
+        offset_array_up: &'a Vec<usize>,
+        offset_array_down: &'a Vec<usize>,
+        edges_up: &'a Vec<Edge>,
+        edges_down: &'a Vec<Edge>,
     ) -> Self {
-        let dist: Vec<usize> = (0..vertices.len()).map(|_| usize::MAX).collect();
-        let pq: BinaryHeap<PQEntry> = BinaryHeap::new();
-        let predecessor_array = (0..vertices.len()).map(|_| usize::MAX).collect();
+        let dist_up: Vec<usize> = (0..vertices.len()).map(|_| usize::MAX).collect();
+        let dist_down: Vec<usize> = (0..vertices.len()).map(|_| usize::MAX).collect();
+        let pq_up: BinaryHeap<PQEntry> = BinaryHeap::new();
+        let pq_down: BinaryHeap<PQEntry> = BinaryHeap::new();
 
         Dijkstra {
-            dist,
-            pq,
+            dist_up,
+            dist_down,
+            pq_up,
+            pq_down,
             vertices,
-            offset_array,
-            edges,
-            predecessor_array
+            offset_array_up,
+            offset_array_down,
+            edges_up,
+            edges_down,
+        }
+    }
+        
+    fn clear_data_structures(&mut self) {
+        self.dist_up = (0..self.vertices.len()).map(|_| usize::MAX).collect();
+        self.dist_down = (0..self.vertices.len()).map(|_| usize::MAX).collect();
+        self.pq_up.clear();
+        self.pq_down.clear();
+    }
+
+    fn relax_up(&mut self, vertex: usize, edge: &Edge) {
+        if self.dist_up[edge.end_vertex] > self.dist_up[vertex] + edge.weight {
+            self.dist_up[edge.end_vertex] = self.dist_up[vertex] + edge.weight;
+            self.pq_up.push(PQEntry {
+                distance: self.dist_up[vertex] + edge.weight,
+                vertex: edge.end_vertex,
+            });
         }
     }
 
-    fn query(&mut self, start_node: usize, target_node: usize) -> usize {
-        self.dist = (0..self.vertices.len()).map(|_| usize::MAX).collect();
-        self.pq.clear();
-
-        self.dist[start_node] = 0;
-        self.pq.push(PQEntry {
-            distance: 0,
-            vertex: start_node,
-        });
-
-        while let Some(PQEntry { distance, vertex }) = self.pq.pop() {
-            if vertex == target_node {
-                return distance;
-            };
-
-            for j in self.offset_array[vertex]..self.offset_array[vertex + 1] {
-                let edge = self.edges.get(j).unwrap();
-                if self.dist[edge.end_vertex] > self.dist[vertex] + edge.weight {
-                    self.dist[edge.end_vertex] = self.dist[vertex] + edge.weight;
-                    self.pq.push(PQEntry {
-                        distance: self.dist[vertex] + edge.weight,
-                        vertex: edge.end_vertex,
-                    });
-                    // Store offset index inside of predecessor array
-                    // This should work in O(n)
-                    self.predecessor_array[edge.start_vertex] = j;
-                }
-            }
+    fn relax_down(&mut self, vertex: usize, edge: &Edge) {
+        if self.dist_down[edge.end_vertex] > self.dist_down[vertex] + edge.weight {
+            self.dist_down[edge.end_vertex] = self.dist_down[vertex] + edge.weight;
+            self.pq_down.push(PQEntry {
+                distance: self.dist_down[vertex] + edge.weight,
+                vertex: edge.end_vertex,
+            });
         }
-        usize::MAX
     }
 
-    fn ch_query(&mut self, start_node: usize, target_node: usize) -> (Vec<usize>, Vec<usize>) {
-            self.dist = (0..self.vertices.len()).map(|_| usize::MAX).collect();
-            self.pq.clear();
+    fn ch_query(&mut self, start_node: usize, target_node: usize) -> usize {
+            self.clear_data_structures();
 
-            self.dist[start_node] = 0;
-            self.pq.push(PQEntry {
+            self.dist_up[start_node] = 0;
+            self.dist_down[target_node] = 0;
+
+            self.pq_up.push(PQEntry {
                 distance: 0,
                 vertex: start_node,
             });
+            self.pq_down.push(PQEntry {
+                distance: 0,
+                vertex: target_node,
+            });
 
-            while let Some(PQEntry { distance, vertex }) = self.pq.pop() {
-                // if vertex == target_node {
-                //     return distance;
-                // };
+            let mut visited: Vec<bool> = (0..self.vertices.len()).map(|_| false).collect();
 
-                for j in self.offset_array[vertex]..self.offset_array[vertex + 1] {
-                    let edge = self.edges.get(j).unwrap();
-                    if self.vertices.get(edge.end_vertex).unwrap().level > self.vertices.get(edge.start_vertex).unwrap().level {
-                        if self.dist[edge.end_vertex] > self.dist[vertex] + edge.weight {
-                            self.dist[edge.end_vertex] = self.dist[vertex] + edge.weight;
-                            self.pq.push(PQEntry {
-                                distance: self.dist[vertex] + edge.weight,
-                                vertex: edge.end_vertex,
-                            });
-                            // Store offset index inside of predecessor array
-                            // This should work in O(n)
-                            self.predecessor_array[edge.end_vertex] = edge.start_vertex;
+            // TODO: Introduce neighbour edge at top level again to avoid 3 lookups
+            while !self.pq_up.is_empty() && !self.pq_down.is_empty() {
+                if let Some(PQEntry { distance: distance_up, vertex: vertex_up }) = self.pq_up.pop() {
+                    println!("Current up_vertex: {:?}", self.vertices.get(vertex_up).unwrap());
+                    if let Some(PQEntry { distance: distance_down, vertex: vertex_down }) = self.pq_down.pop() {
+                        println!("Current down_vertex: {:?}", self.vertices.get(vertex_down).unwrap());
+                        // Upwards search step
+                        for neighbour in self.offset_array_up[vertex_up]..self.offset_array_up[vertex_up + 1] {
+                            let edge = self.edges_up.get(neighbour).unwrap();
+                            if self.vertices.get(self.edges_up.get(neighbour).unwrap().end_vertex).unwrap().level > self.vertices.get(self.edges_up.get(neighbour).unwrap().start_vertex).unwrap().level {
+                                self.relax_up(vertex_up, edge); 
+                                
+                                if visited[edge.end_vertex] == true {
+                                    return edge.end_vertex
+                                } else {
+                                    visited[edge.end_vertex] = true;
+                                }
+                            }
+                        }
+                        
+                        // Downwards search step
+                        for neighbour in self.offset_array_down[vertex_down]..self.offset_array_down[vertex_down + 1] {
+                            let edge = self.edges_down.get(neighbour).unwrap();
+                            if self.vertices.get(edge.end_vertex).unwrap().level > self.vertices.get(edge.start_vertex).unwrap().level {
+                                self.relax_down(vertex_down, edge); 
+                                
+                                if visited[edge.end_vertex] == true {
+                                    return edge.end_vertex
+                                } else {
+                                    visited[edge.end_vertex] = true;
+                                }
+                            }
                         }
                     }
                 }
             }
-            (self.dist.clone(), self.predecessor_array.clone())
+            usize::max_value()
         }
-}
-
-fn dfs(
-    start_node: usize,
-    visited: &mut HashSet<usize>,
-    offset_array: &Vec<usize>,
-    edges: &Vec<Edge>,
-) {
-    let mut stack = Vec::new();
-
-    stack.push(start_node);
-    visited.insert(start_node);
-
-    while !stack.is_empty() {
-        if let Some(current_vertex) = stack.pop() {
-            for j in offset_array[current_vertex]..offset_array[current_vertex + 1] {
-                let edge = edges.get(j).unwrap();
-                if !visited.contains(&edge.end_vertex) {
-                    stack.push(edge.end_vertex);
-                    visited.insert(edge.end_vertex);
-                }
-            }
-        }
-    }
 }
 
 // The output is wrapped in a Result to allow matching on errors.

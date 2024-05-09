@@ -47,3 +47,7 @@ Im Hauptverzeichnis den folgenden Befehl ausfüHauptverzeichnis
 - Abwechseld von Start und Ziel suchen:
     - Wenn eine Node das erste Mal von beiden Seiten aus gesettled wurde, dann wissen wir, dass wir aufhören können und welches das minimale Element aus beiden ist
     - Dafür müssen sich beide Searches eine PQ teilen und ihrer Schritte abwechselnd durchführen
+
+
+
+// TODO: Wir können die downward_neighbours aus dem offset_array entfernen

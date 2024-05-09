@@ -3,10 +3,10 @@ use std::collections::BinaryHeap;
 use crate::{Edge, Vertex, pq::PQEntry};
 
 pub(crate) struct Dijkstra<'a> {
-    dist_up: Vec<usize>,
-    dist_down: Vec<usize>,
-    pq_up: BinaryHeap<PQEntry>,
-    pq_down: BinaryHeap<PQEntry>,
+    df: Vec<usize>,
+    db: Vec<usize>,
+    fq: BinaryHeap<PQEntry>,
+    bq: BinaryHeap<PQEntry>,
     vertices: &'a Vec<Vertex>,
     offset_array_up: &'a Vec<usize>,
     offset_array_down: &'a Vec<usize>,
@@ -14,8 +14,8 @@ pub(crate) struct Dijkstra<'a> {
     edges_down: &'a Vec<Edge>,
     predecessors_up: Vec<usize>,
     predecessors_down: Vec<usize>,
-    visited_up: Vec<bool>,
-    visited_down: Vec<bool>
+    sf: Vec<usize>,
+    sb: Vec<usize>
 }
 
 impl<'a> Dijkstra<'a> {
@@ -26,20 +26,22 @@ impl<'a> Dijkstra<'a> {
         edges_up: &'a Vec<Edge>,
         edges_down: &'a Vec<Edge>,
     ) -> Self {
-        let dist_up: Vec<usize> = (0..vertices.len()).map(|_| usize::MAX).collect();
-        let dist_down: Vec<usize> = (0..vertices.len()).map(|_| usize::MAX).collect();
-        let pq_up: BinaryHeap<PQEntry> = BinaryHeap::new();
-        let pq_down: BinaryHeap<PQEntry> = BinaryHeap::new();
+        let df: Vec<usize> = (0..vertices.len()).map(|_| usize::MAX).collect();
+        let db: Vec<usize> = (0..vertices.len()).map(|_| usize::MAX).collect();
+        let fq: BinaryHeap<PQEntry> = BinaryHeap::new();
+        let bq: BinaryHeap<PQEntry> = BinaryHeap::new();
         let predecessors_up: Vec<usize> = (0..vertices.len()).map(|_| usize::MAX).collect();
         let predecessors_down: Vec<usize> = (0..vertices.len()).map(|_| usize::MAX).collect();
-        let mut visited_up: Vec<bool> = (0..vertices.len()).map(|_| false).collect();
-        let mut visited_down: Vec<bool> = (0..vertices.len()).map(|_| false).collect(); 
+        // let sf: Vec<bool> = (0..vertices.len()).map(|_| false).collect();
+        // let sb: Vec<bool> = (0..vertices.len()).map(|_| false).collect();
+        let sf: Vec<usize> = Vec::new();
+        let sb: Vec<usize> = Vec::new(); 
 
         Dijkstra {
-            dist_up,
-            dist_down,
-            pq_up,
-            pq_down,
+            df,
+            db,
+            fq,
+            bq,
             vertices,
             offset_array_up,
             offset_array_down,
@@ -47,87 +49,106 @@ impl<'a> Dijkstra<'a> {
             edges_down,
             predecessors_up,
             predecessors_down,
-            visited_up,
-            visited_down
+            sf,
+            sb
         }
     }
         
     fn clear_data_structures(&mut self) {
-        self.dist_up = (0..self.vertices.len()).map(|_| usize::MAX).collect();
-        self.dist_down = (0..self.vertices.len()).map(|_| usize::MAX).collect();
-        self.pq_up.clear();
-        self.pq_down.clear();
-    }
-
-    fn relax_up(&mut self, vertex: usize, edge: &Edge) {
-        if self.dist_up[edge.end_vertex] > self.dist_up[vertex] + edge.weight {
-            self.dist_up[edge.end_vertex] = self.dist_up[vertex] + edge.weight;
-            self.pq_up.push(PQEntry {
-                distance: self.dist_up[vertex] + edge.weight,
-                vertex: edge.end_vertex,
-            });
-            self.predecessors_up[edge.end_vertex] = vertex;
-        }
+        self.df = (0..self.vertices.len()).map(|_| usize::MAX).collect();
+        self.db = (0..self.vertices.len()).map(|_| usize::MAX).collect();
+        self.fq.clear();
+        self.bq.clear();
     }
 
     fn relax_down(&mut self, vertex: usize, edge: &Edge) {
-        if self.dist_down[edge.end_vertex] > self.dist_down[vertex] + edge.weight {
-            self.dist_down[edge.end_vertex] = self.dist_down[vertex] + edge.weight;
-            self.pq_down.push(PQEntry {
-                distance: self.dist_down[vertex] + edge.weight,
-                vertex: edge.end_vertex,
-            });
-            self.predecessors_down[edge.end_vertex] = vertex;
-        }
     }
 
-    pub fn ch_query(&mut self, start_node: usize, target_node: usize) -> (Vec<usize>, Vec<usize>, usize, usize, Vec<usize>, Vec<usize>) {
+    pub fn ch_query(&mut self, s: usize, t: usize) -> f64 {
             self.clear_data_structures();
 
-            self.dist_up[start_node] = 0;
-            self.dist_down[target_node] = 0;
+            self.df[s] = 0;
+            self.db[t] = 0;
 
-            self.pq_up.push(PQEntry {
+            self.fq.push(PQEntry {
                 distance: 0,
-                vertex: start_node,
+                vertex: s,
             });
-            self.pq_down.push(PQEntry {
+            self.bq.push(PQEntry {
                 distance: 0,
-                vertex: target_node,
+                vertex: t,
             });
 
-            while !self.pq_up.is_empty() && !self.pq_down.is_empty() {
-                if let Some(PQEntry { distance: _, vertex: vertex_up }) = self.pq_up.pop() {
-                    if let Some(PQEntry { distance: _, vertex: vertex_down }) = self.pq_down.pop() {
+            // length of the bet path yet seen
+            let mut mu = f64::INFINITY;
 
-                        if self.visited_down[vertex_up] == true {
-                            return (self.predecessors_up.clone(), self.predecessors_down.clone(), vertex_up, self.dist_up[vertex_up] + self.dist_down[vertex_up], self.dist_up.clone(), self.dist_down.clone())
-                        }
+            while !self.fq.is_empty() && !self.bq.is_empty() {
+                if let Some(PQEntry { distance: _, vertex: u }) = self.fq.pop() {
+                    if let Some(PQEntry { distance: _, vertex: v }) = self.bq.pop() {
+                        // self.sf.insert(u, true);
+                        self.sf.push(u);
+                        // self.sb.insert(v, true);
+                        self.sb.push(v);
 
-                        if self.visited_up[vertex_down] == true {
-                            return (self.predecessors_up.clone(), self.predecessors_down.clone(), vertex_down, self.dist_up[vertex_down] + self.dist_down[vertex_down], self.dist_up.clone(), self.dist_down.clone())
-                        }
+                        for edge_id in self.offset_array_up[u]..self.offset_array_up[u + 1] {
 
-                        // Upwards search step
-                        for edge_id in self.offset_array_up[vertex_up]..self.offset_array_up[vertex_up + 1] {
                             let edge = self.edges_up.get(edge_id).unwrap();
-                            if self.vertices.get(edge.end_vertex).unwrap().level > self.vertices.get(edge.start_vertex).unwrap().level {
-                                self.relax_up(vertex_up, edge);
-                                self.visited_up[edge.end_vertex] = true;
+                            let x = edge.end_vertex;
+                            let weight = edge.weight;
+
+                            if self.vertices.get(x).unwrap().level > self.vertices.get(u).unwrap().level {
+
+                                // relax u-x
+                                println!("U: Currently looking at this distance {} for this node {:?}", self.df[u], self.vertices.get(u));
+                                if !self.sf.contains(&x) && self.df[x] > self.df[u] + weight {
+                                    self.df[x] = self.df[u] + weight;
+                                    self.fq.push(PQEntry {
+                                        distance: self.df[x],
+                                        vertex: x,
+                                    });
+                                    self.predecessors_up[x] = u;
+                                }
+
+                                // check for a path s --- u - x --- t, and update mu
+                                if self.sb.contains(&x) && ((self.df[u] + weight + self.db[x]) as f64) < mu {
+                                    mu = (self.df[u] + weight + self.db[x]) as f64
+                                }
                             }
                         }
                         
-                        // Downwards search step
-                        for neighbour in self.offset_array_down[vertex_down]..self.offset_array_down[vertex_down + 1] {
-                            let edge = self.edges_down.get(neighbour).unwrap();
-                            if self.vertices.get(edge.end_vertex).unwrap().level > self.vertices.get(edge.start_vertex).unwrap().level {
-                                self.relax_down(vertex_down, edge);
-                                self.visited_down[edge.end_vertex] = true;
+                        for edge_id in self.offset_array_down[v]..self.offset_array_down[v + 1] {
+
+                            let edge = self.edges_down.get(edge_id).unwrap();
+                            let x = edge.end_vertex;
+                            let weight = edge.weight;
+
+                            if self.vertices.get(x).unwrap().level > self.vertices.get(v).unwrap().level {
+
+                                // relax v-x
+                                println!("D: Currently looking at this distance {} for this node {:?}", self.db[v], self.vertices.get(v));
+                                if !self.sb.contains(&x) && self.db[x] > self.db[v] + weight {
+                                    self.db[x] = self.db[v] + weight;
+                                    self.bq.push(PQEntry {
+                                        distance: self.db[x],
+                                        vertex: x,
+                                    });
+                                    self.predecessors_down[x] = v;
+                                }
+                                
+                                // check for a path s --- u - x --- t, and update mu
+                                if self.sf.contains(&x) && ((self.db[v] + weight + self.df[x]) as f64) < mu {
+                                    mu = (self.db[v] + weight + self.df[x]) as f64
+                                }
                             }
+                        }
+
+                        // check the termination condition
+                        if (self.df[u] + self.db[v]) as f64 >= mu {
+                            return mu;
                         }
                     }
                 }
             }
-            (Vec::new(), Vec::new(), usize::max_value(), usize::max_value(), Vec::new(), Vec::new())
+            f64::INFINITY
         }
 }

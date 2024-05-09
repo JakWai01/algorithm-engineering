@@ -135,35 +135,35 @@ fn main() {
 
     let start_node = 377371;
     let target_node = 754742;
-    let (predecessors_up, predecessors_down, min, distance, dist_up, dist_down) = path_finding.ch_query(start_node, target_node);
+    let distance = path_finding.ch_query(start_node, target_node);
 
     let elapsed = now.elapsed();
 
-    let mut upwards_path_node_id = min;
-    let mut upwards_path: Vec<usize> = Vec::new();
-    while upwards_path_node_id != start_node {
-        upwards_path.insert(0, upwards_path_node_id);
-        upwards_path_node_id = predecessors_up[upwards_path_node_id];
-    }
-    upwards_path.insert(0, start_node);
-    println!("Upwards path: {:?}", upwards_path);
+    // let mut upwards_path_node_id = min;
+    // let mut upwards_path: Vec<usize> = Vec::new();
+    // while upwards_path_node_id != start_node {
+    //     upwards_path.insert(0, upwards_path_node_id);
+    //     upwards_path_node_id = predecessors_up[upwards_path_node_id];
+    // }
+    // upwards_path.insert(0, start_node);
+    // println!("Upwards path: {:?}", upwards_path);
 
-    let mut downwards_path_node_id = min;
-    let mut downwards_path: Vec<usize> = Vec::new();
-    while downwards_path_node_id != target_node {
-        downwards_path.push( downwards_path_node_id);
-        downwards_path_node_id = predecessors_down[downwards_path_node_id];
-    }
-    downwards_path.push(target_node);
-    println!("Downwards path: {:?}", downwards_path);
+    // let mut downwards_path_node_id = min;
+    // let mut downwards_path: Vec<usize> = Vec::new();
+    // while downwards_path_node_id != target_node {
+    //     downwards_path.push( downwards_path_node_id);
+    //     downwards_path_node_id = predecessors_down[downwards_path_node_id];
+    // }
+    // downwards_path.push(target_node);
+    // println!("Downwards path: {:?}", downwards_path);
 
-    for node in upwards_path {
-        println!("Node {} has distance from start: {}", node, dist_up[node]);
-    }
+    // for node in upwards_path {
+    //     println!("Node {} has distance from start: {}", node, dist_up[node]);
+    // }
 
-    for node in downwards_path {
-        println!("Node {} has distance from target: {}", node, dist_down[node]);
-    }
+    // for node in downwards_path {
+    //     println!("Node {} has distance from target: {}", node, dist_down[node]);
+    // }
 
     println!("distance: {}/436627 - in time: {}", distance, elapsed.as_millis());
 

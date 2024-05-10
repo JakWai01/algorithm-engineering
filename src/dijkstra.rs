@@ -52,6 +52,7 @@ impl<'a> Dijkstra<'a> {
         }
     }
 
+    // Based on https://scholar.archive.org/work/kxils2sde5dwpbbqhddzyltabq/access/wayback/https://publikationen.bibliothek.kit.edu/1000028701/142973925
     pub fn ch_query(&mut self, s: usize, t: usize) -> f64 {
         self.df[s] = 0;
         self.db[t] = 0;

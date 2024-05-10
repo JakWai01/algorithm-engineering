@@ -4,7 +4,8 @@ use std::{
     env,
     fs::File,
     io::{self, BufRead},
-    path::Path, time::Instant,
+    path::Path,
+    time::Instant,
 };
 
 mod dijkstra;
@@ -103,11 +104,9 @@ fn main() {
         }
     }
 
-    let (mut edges_up, mut edges_down): (Vec<Edge>, Vec<Edge>) =
-        edges.drain(..).partition(|edge| {
-            vertices[edge.start_vertex].level
-                < vertices[edge.end_vertex].level
-        });
+    let (mut edges_up, mut edges_down): (Vec<Edge>, Vec<Edge>) = edges
+        .drain(..)
+        .partition(|edge| vertices[edge.start_vertex].level < vertices[edge.end_vertex].level);
 
     edges_down.iter_mut().for_each(|edge| {
         std::mem::swap(&mut edge.start_vertex, &mut edge.end_vertex);
@@ -124,15 +123,21 @@ fn main() {
     edges_down.sort_by_key(|edge| edge.start_vertex);
 
     let offset_array_up: Vec<usize> = create_offset_array(&edges_up, num_vertices);
-    let offset_array_down: Vec<usize> = create_offset_array(&edges_down, num_vertices); 
+    let offset_array_down: Vec<usize> = create_offset_array(&edges_down, num_vertices);
     // let predecessor_upward_offset_array: Vec<usize> = create_predecessor_offset_array(predecessor_upward_edges, num_vertices);
     // let predecessor_downward_offset_array: Vec<usize> = create_predecessor_offset_array(predecessor_downward_edges, num_vertices);
 
     // Run bi-directional dijkstra
-    let mut path_finding = dijkstra::Dijkstra::new(&vertices, &offset_array_up, &offset_array_down, &edges_up, &edges_down);
+    let mut path_finding = dijkstra::Dijkstra::new(
+        &vertices,
+        &offset_array_up,
+        &offset_array_down,
+        &edges_up,
+        &edges_down,
+    );
 
     let now = Instant::now();
-    
+
     // 377371 - 754742
     let s = 377371;
     let t = 754742;
@@ -140,34 +145,35 @@ fn main() {
 
     let elapsed = now.elapsed();
 
-    // let mut upwards_path_node_id = min;
+    // let mut upwards_path_node_id = current_min;
     // let mut upwards_path: Vec<usize> = Vec::new();
-    // while upwards_path_node_id != start_node {
+    // while upwards_path_node_id != s {
     //     upwards_path.insert(0, upwards_path_node_id);
     //     upwards_path_node_id = predecessors_up[upwards_path_node_id];
     // }
-    // upwards_path.insert(0, start_node);
+    // upwards_path.insert(0, s);
     // println!("Upwards path: {:?}", upwards_path);
 
-    // let mut downwards_path_node_id = min;
+    // let mut downwards_path_node_id = current_min;
     // let mut downwards_path: Vec<usize> = Vec::new();
-    // while downwards_path_node_id != target_node {
-    //     downwards_path.push( downwards_path_node_id);
+    // while downwards_path_node_id != t {
+    //     downwards_path.push(downwards_path_node_id);
     //     downwards_path_node_id = predecessors_down[downwards_path_node_id];
     // }
-    // downwards_path.push(target_node);
+    // downwards_path.push(t);
     // println!("Downwards path: {:?}", downwards_path);
+    // downwards_path.remove(0);
 
-    // for node in upwards_path {
-    //     println!("Node {} has distance from start: {}", node, dist_up[node]);
-    // }
+    // // Concatenate paths
+    // upwards_path.append(&mut downwards_path);
 
-    // for node in downwards_path {
-    //     println!("Node {} has distance from target: {}", node, dist_down[node]);
-    // }
+    // println!("Final path: {:?}", upwards_path);
 
-    println!("distance: {}/436627 - in time: {}", distance, elapsed.as_millis());
-
+    println!(
+        "distance: {}/436627 - in time: {}",
+        distance,
+        elapsed.as_millis()
+    );
 }
 
 fn create_predecessor_offset_array(edges: Vec<Edge>, num_vertices: usize) -> Vec<usize> {
@@ -211,8 +217,6 @@ fn create_offset_array(edges: &Vec<Edge>, num_vertices: usize) -> Vec<usize> {
     }
     offset_array
 }
-
-
 
 // The output is wrapped in a Result to allow matching on errors.
 // Returns an Iterator to the Reader of the lines of the file.

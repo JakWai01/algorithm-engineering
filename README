@@ -52,3 +52,43 @@ Im Hauptverzeichnis den folgenden Befehl ausfüHauptverzeichnis
 
 // TODO: Wir können die downward_neighbours aus dem offset_array entfernen
 // TODO: Reorder nodes based on level in order to get the best performance
+
+Desired output and path: 
+
+```
+Reading graph from file: /home/jakob/Documents/master/algorithm-engineering/exercises/02/stgtregbz_ch.fmi
+Number of vertices: 1132113
+Number of edges: 4148265
+First edge Edge { id: 0, start_vertex: 0, end_vertex: 1104356, weight: 253, typ: 0, max_speed: -1, edge_id_a: 1, edge_id_b: 4067034 }
+min: 436627 - in time: 68
+Upwards path: [377371, 377370, 357425, 357426, 119334, 119339, 173169, 119364, 1104076, 415851, 10557, 10938, 621003, 183053]
+Downwards path: [183053, 872669, 16825, 407460, 6193, 6215, 64916, 71162, 92904, 306882, 754755, 754745, 754736, 911476, 754741, 754742]
+Final path: [377371, 377370, 357425, 357426, 119334, 119339, 173169, 119364, 1104076 -- 415851, 10557, 10938, 621003, 183053, 872669 -- 16825, 407460, 6193, 6215, 64916, 71162, 92904, 306882, 754755, 754745, 754736, 911476, 754741, 754742]
+```
+
+
+Current output: 
+
+```
+Upwards path: [377371, 377370, 357425, 357426, 119334, 119339, 173169, 119364, 1104076, 119390, 132529, 89524, 38202, 29284, 42788]
+Downwards path: [42788, 16825, 407460, 6193, 6215, 64916, 71162, 92904, 306882, 754755, 754745, 754736, 911476, 754741, 754742]
+Final path: [377371, 377370, 357425, 357426, 119334, 119339, 173169, 119364, 1104076 -- 119390, 132529, 89524, 38202, 29284, 42788 -- 16825, 407460, 6193, 6215, 64916, 71162, 92904, 306882, 754755, 754745, 754736, 911476, 754741, 754742]
+distance: 439644/436627 - in time: 148
+```
+
+## Notes
+
+- The path differs by exactly 6 vertices
+- Print them to find out where this decision came from
+
+At 1104076, we get the following other nodes to reach
+
+```
+U: Currently looking at this distance 35154 for this node Some(Vertex { id: 119390, osm_id: 224810626, lon: 49.150658, lat: 8.9955268, height: 0, level: 32 }) with weight 1011
+U: Currently looking at this distance 35154 for this node Some(Vertex { id: 415851, osm_id: 424088791, lon: 49.1498095, lat: 9.1168512, height: 0, level: 33 }) with weight 32697
+```
+
+So that means that we have just made the "wrong" decision. We chose the one with the smaller cost but apparently that leads to a bigger cost after reaching the first peek node.
+
+
+Der Fehler ist auf beiden Seiten gleich. Wir nehmen die Node mit der geringsten Distanz, finden dann irgendwann eine peek node, aber wären wir früher mal auf einen höheren Pfad abgebogen würden wir eine bessere Peek node finden

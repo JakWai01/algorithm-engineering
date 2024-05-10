@@ -132,10 +132,11 @@ fn main() {
     let mut path_finding = dijkstra::Dijkstra::new(&vertices, &offset_array_up, &offset_array_down, &edges_up, &edges_down);
 
     let now = Instant::now();
-
-    let start_node = 377371;
-    let target_node = 754742;
-    let distance = path_finding.ch_query(start_node, target_node);
+    
+    // 377371 - 754742
+    let s = 377371;
+    let t = 754742;
+    let distance = path_finding.ch_query(s, t);
 
     let elapsed = now.elapsed();
 

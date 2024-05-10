@@ -51,3 +51,4 @@ Im Hauptverzeichnis den folgenden Befehl ausfüHauptverzeichnis
 
 
 // TODO: Wir können die downward_neighbours aus dem offset_array entfernen
+// TODO: Reorder nodes based on level in order to get the best performance

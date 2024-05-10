@@ -97,6 +97,7 @@ impl<'a> Dijkstra<'a> {
             ) as f64
         {
             forward = !forward;
+
             if forward {
                 pq = &mut self.fq;
                 offset_array = &mut self.offset_array_up;
@@ -131,103 +132,6 @@ impl<'a> Dijkstra<'a> {
                         })
                     }
                 }
-
-                // if let Some(PQEntry {
-                //     distance: _,
-                //     vertex: v,
-                // }) = self.bq.pop()
-                // {
-                //     self.sf.push(u);
-                //     self.sb.push(v);
-
-                //     for edge_id in self.offset_array_up[u]..self.offset_array_up[u + 1] {
-                //         let edge = self.edges_up.get(edge_id).unwrap();
-                //         let x = edge.end_vertex;
-                //         let weight = edge.weight;
-
-                //         if self.vertices.get(x).unwrap().level > self.vertices.get(u).unwrap().level
-                //         {
-                //             if !self.sf.contains(&x) && self.df[x] > self.df[u] + weight {
-                //                 self.df[x] = self.df[u] + weight;
-                //                 self.fq.push(PQEntry {
-                //                     distance: self.df[x],
-                //                     vertex: x,
-                //                 });
-
-                //                 self.predecessors_up[x] = u;
-                //             }
-
-                //             // check for a path s --- u - x --- t, and update mu
-                //             if self.sb.contains(&x)
-                //                 && ((self.df[u] + weight + self.db[x]) as f64) < mu
-                //             {
-                //                 mu = (self.df[u] + weight + self.db[x]) as f64;
-                //                 current_min = x;
-                //                 if u == 1104076 {
-                //                     println!(
-                //                         "Updated current minimum path with neighbour: {:?}",
-                //                         x
-                //                     );
-                //                 }
-                //             }
-                //         }
-                //     }
-
-                //     for edge_id in self.offset_array_down[v]..self.offset_array_down[v + 1] {
-                //         let edge = self.edges_down.get(edge_id).unwrap();
-                //         let x = edge.end_vertex;
-                //         let weight = edge.weight;
-
-                //         if self.vertices.get(x).unwrap().level > self.vertices.get(v).unwrap().level
-                //         {
-                //             // relax v-x
-                //             if !self.sb.contains(&x) && self.db[x] > self.db[v] + weight {
-                //                 self.db[x] = self.db[v] + weight;
-                //                 self.bq.push(PQEntry {
-                //                     distance: self.db[x],
-                //                     vertex: x,
-                //                 });
-                //                 self.predecessors_down[x] = v;
-                //             }
-
-                //             // check for a path t --- v - x --- s, and update mu
-                //             if self.sf.contains(&x)
-                //                 && ((self.db[v] + weight + self.df[x]) as f64) < mu
-                //             {
-                //                 mu = (self.db[v] + weight + self.df[x]) as f64;
-                //                 current_min = x;
-                //                 if v == 16825 {
-                //                     println!(
-                //                         "Updated current minimum path with neighbour: {:?}",
-                //                         x
-                //                     );
-                //                 }
-                //             }
-                //         }
-                //     }
-
-                //     // check the termination condition
-                //     // Das funktioniert weil wir dann schon alle kürzeren Pfade (nehmen ja immer den niedrigsten zuerst) und d.h.
-                //     // der pfad den wir jetzt anschauen ist größer als der bisher kürzeste s-t Pfad obwohl wir alle Pfade beleuchtet haben
-                //     // und es keinen Pfad mehr geben kann, der kürzer ist. Aber d.h. irgendwas stimmt nicht, da der kürzeste Pfad noch in der Queue sein muss
-                //     if (self.df[u] + self.db[v]) as f64 >= mu {
-                //         println!("Terminating with u {:?} with distance {} and v {:?} with distance {}. 183053 is currently settled with {}", u, self.df[u], v, self.db[v], self.df[183053]);
-                //         println!(
-                //             "Exiting since {} + {} = {} and mu was {}",
-                //             self.df[u],
-                //             self.db[v],
-                //             self.df[u] + self.db[v],
-                //             mu
-                //         );
-                //         println!("Backwards queue: {:?}", self.bq);
-                //         return (
-                //             mu,
-                //             current_min,
-                //             self.predecessors_up.clone(),
-                //             self.predecessors_down.clone(),
-                //         );
-                //     }
-                // }
             }
         }
         d

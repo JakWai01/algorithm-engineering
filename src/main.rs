@@ -172,7 +172,7 @@ fn main() {
     println!(
         "distance: {}/436627 - in time: {}",
         distance,
-        elapsed.as_millis()
+        elapsed.as_micros()
     );
 }
 

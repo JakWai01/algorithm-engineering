@@ -160,12 +160,12 @@ fn main() {
         downwards_path_node_id = path_finding.predecessors_down[downwards_path_node_id];
     }
     downwards_path.push(t);
-    downwards_path.remove(0);
+    // downwards_path.remove(0);
 
     // Concatenate paths
-    upwards_path.append(&mut downwards_path);
+    // upwards_path.append(&mut downwards_path);
 
-    println!("Final path: {:?}", upwards_path);
+    // println!("Final path: {:?}", upwards_path);
 
     println!(
         "distance: {}/436627 - in time: {}",
@@ -173,11 +173,62 @@ fn main() {
         elapsed.as_micros()
     );
 
-    // TODO: Reconstruct original path
-    for edge in upwards_path {
-        let edge = edges.get(edge).unwrap();
-        if edge.edge_id_a != -1 && edge.edge_id_b != -1 {}
+    let mut final_edge_path: Vec<usize> = Vec::new();
+
+    for vertex in upwards_path {
+        let edge = path_finding.predecessor_edges_up[vertex];
+        if edge == usize::MAX {
+            continue;
+        }
+        let e = edges.get(edge).unwrap();
+        println!(
+            "U Using edge {} from {} to {} replacing {} and {}",
+            e.id, e.start_vertex, e.end_vertex, e.edge_id_a, e.edge_id_b
+        );
+        final_edge_path.push(e.id);
     }
+
+    for vertex in downwards_path {
+        let edge = path_finding.predecessor_edges_down[vertex];
+        if edge == usize::MAX {
+            continue;
+        }
+        let e = edges.get(edge).unwrap();
+        println!(
+            "D Using edge {} from {} to {}",
+            e.id, e.start_vertex, e.end_vertex
+        );
+        final_edge_path.push(e.id);
+    }
+
+    println!("Final edge path: {:?}", final_edge_path);
+
+    // Remove shortcuts
+    let mut unpack_stack: Vec<usize> = Vec::new();
+    let mut sanitized_path: Vec<usize> = Vec::new();
+    for edge in final_edge_path {
+        unpack_stack.push(edge);
+        let e = edges.get(edge).unwrap();
+        while !unpack_stack.is_empty() {
+            let edge_id = unpack_stack.pop().unwrap();
+            let edge = edges.get(edge_id).unwrap();
+            if edge.edge_id_a != -1 && edge.edge_id_b != -1 {
+                unpack_stack.push(edge.edge_id_a as usize);
+                unpack_stack.push(edge.edge_id_b as usize);
+            } else {
+                sanitized_path.push(edge.id);
+            }
+        }
+    }
+
+    println!("Sanitized path: {:?}", sanitized_path);
+    // for el in sanitized_path {
+    //     let edge = edges.get(el).unwrap();
+    //     println!(
+    //         "Edge {} from {} to {}",
+    //         edge.id, edge.start_vertex, edge.end_vertex
+    //     );
+    // }
 }
 
 fn create_predecessor_offset_array(edges: Vec<Edge>, num_vertices: usize) -> Vec<usize> {

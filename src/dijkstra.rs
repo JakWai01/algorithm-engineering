@@ -164,7 +164,7 @@ impl<'a> Dijkstra<'a> {
                         });
                         predecessors[v] = u;
                         // We store the predecessor_edge for the corresponding vertex
-                        predecessor_edges[v] = e;
+                        predecessor_edges[v] = edge.id;
                     }
                 }
             }

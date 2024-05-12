@@ -92,3 +92,8 @@ So that means that we have just made the "wrong" decision. We chose the one with
 
 
 Der Fehler ist auf beiden Seiten gleich. Wir nehmen die Node mit der geringsten Distanz, finden dann irgendwann eine peek node, aber wären wir früher mal auf einen höheren Pfad abgebogen würden wir eine bessere Peek node finden
+
+
+## TODO
+
+- Implement stall on demand

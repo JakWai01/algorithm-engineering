@@ -105,7 +105,7 @@ fn main() {
     }
 
     let (mut edges_up, mut edges_down): (Vec<Edge>, Vec<Edge>) = edges
-        .drain(..)
+        .iter()
         .partition(|edge| vertices[edge.start_vertex].level < vertices[edge.end_vertex].level);
 
     edges_down.iter_mut().for_each(|edge| {
@@ -141,39 +141,43 @@ fn main() {
     // 377371 - 754742
     let s = 377371;
     let t = 754742;
-    let distance = path_finding.ch_query(s, t);
+    let (distance, current_min) = path_finding.ch_query(s, t);
 
     let elapsed = now.elapsed();
 
-    // let mut upwards_path_node_id = current_min;
-    // let mut upwards_path: Vec<usize> = Vec::new();
-    // while upwards_path_node_id != s {
-    //     upwards_path.insert(0, upwards_path_node_id);
-    //     upwards_path_node_id = predecessors_up[upwards_path_node_id];
-    // }
-    // upwards_path.insert(0, s);
-    // println!("Upwards path: {:?}", upwards_path);
+    let mut upwards_path_node_id = current_min;
+    let mut upwards_path: Vec<usize> = Vec::new();
+    while upwards_path_node_id != s {
+        upwards_path.insert(0, upwards_path_node_id);
+        upwards_path_node_id = path_finding.predecessors_up[upwards_path_node_id];
+    }
+    upwards_path.insert(0, s);
 
-    // let mut downwards_path_node_id = current_min;
-    // let mut downwards_path: Vec<usize> = Vec::new();
-    // while downwards_path_node_id != t {
-    //     downwards_path.push(downwards_path_node_id);
-    //     downwards_path_node_id = predecessors_down[downwards_path_node_id];
-    // }
-    // downwards_path.push(t);
-    // println!("Downwards path: {:?}", downwards_path);
-    // downwards_path.remove(0);
+    let mut downwards_path_node_id = current_min;
+    let mut downwards_path: Vec<usize> = Vec::new();
+    while downwards_path_node_id != t {
+        downwards_path.push(downwards_path_node_id);
+        downwards_path_node_id = path_finding.predecessors_down[downwards_path_node_id];
+    }
+    downwards_path.push(t);
+    downwards_path.remove(0);
 
-    // // Concatenate paths
-    // upwards_path.append(&mut downwards_path);
+    // Concatenate paths
+    upwards_path.append(&mut downwards_path);
 
-    // println!("Final path: {:?}", upwards_path);
+    println!("Final path: {:?}", upwards_path);
 
     println!(
         "distance: {}/436627 - in time: {}",
         distance,
         elapsed.as_micros()
     );
+
+    // TODO: Reconstruct original path
+    for edge in upwards_path {
+        let edge = edges.get(edge).unwrap();
+        if edge.edge_id_a != -1 && edge.edge_id_b != -1 {}
+    }
 }
 
 fn create_predecessor_offset_array(edges: Vec<Edge>, num_vertices: usize) -> Vec<usize> {

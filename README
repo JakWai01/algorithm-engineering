@@ -27,19 +27,13 @@ Im Hauptverzeichnis den folgenden Befehl ausfüHauptverzeichnis
 ## Note 
 
 - Understand Contraction Hierarchies better. Will we automatically take the shortcut in favor of the normal edge although the path has the same weight in total?
-- Vorgängerkante statt Vorgängerknoten speichern
 - Von unendlich auf was kleineres -> Knoten in visited array und counter eins hoch. Was ist der Counter vom Visited array 
-- Extra array für Vorgänger
 - Eine iteration überall eingehenden Kanten für stall on demand
 - Eingehenden Kanten mit Node speichern (separates Offset array)
 - PHAST = Dijkstra + 1 mal drüber iterieren und relaxieren
 - Abbruchkriterium wenn die Distanz größer wird?
-- 1 visited liste mit Knoten IDs wo wir rumgepfuscht haben
-    - Für jeden Knoten: Distanz von source, distanz von target -> Wenn weniger als bisher gesehen passt es (Stimmt das oder muss es mehr sein - dreiecksungleichung)
 - Cache-effizient mit sortierung nach Level
 - Up-search s: Stall on demand, von T genauso 
-- Abwechselnd wegen Abbruchkriterium -> Nicht bis nach Hamburg nach peek suchen, wenn wir nach Stuttgart Mitte wollen
-- Use PQ from up-search to check when to terminate
 
 
 ## Optimierungen

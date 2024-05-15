@@ -1,6 +1,4 @@
 use std::{
-    cmp::Ordering,
-    collections::BinaryHeap,
     env,
     fs::File,
     io::{self, BufRead},
@@ -112,28 +110,37 @@ fn main() {
         std::mem::swap(&mut edge.start_vertex, &mut edge.end_vertex);
     });
 
-    // Create offset_array of predecessors as well
-    // let mut predecessor_upward_edges = edges_up.clone();
-    // let mut predecessor_downward_edges = edges_down.clone();
-
-    // predecessor_upward_edges.sort_by_key(|edge| edge.end_vertex);
-    // predecessor_downward_edges.sort_by_key(|edge| edge.end_vertex);
-
     edges_up.sort_by_key(|edge| edge.start_vertex);
     edges_down.sort_by_key(|edge| edge.start_vertex);
 
     let offset_array_up: Vec<usize> = create_offset_array(&edges_up, num_vertices);
     let offset_array_down: Vec<usize> = create_offset_array(&edges_down, num_vertices);
-    // let predecessor_upward_offset_array: Vec<usize> = create_predecessor_offset_array(predecessor_upward_edges, num_vertices);
-    // let predecessor_downward_offset_array: Vec<usize> = create_predecessor_offset_array(predecessor_downward_edges, num_vertices);
 
+    // Create offset_array of predecessors as well
+    let mut predecessor_upward_edges = edges_up.clone();
+    let mut predecessor_downward_edges = edges_down.clone();
+
+    predecessor_upward_edges.sort_by_key(|edge| edge.end_vertex);
+    predecessor_downward_edges.sort_by_key(|edge| edge.end_vertex);
+
+    println!("Before array up preds");
+    let offset_array_up_predecessors: Vec<usize> =
+        create_predecessor_offset_array(&predecessor_upward_edges, num_vertices);
+
+    println!("Before array down preds");
+    let offset_array_down_predecessors: Vec<usize> =
+        create_predecessor_offset_array(&predecessor_downward_edges, num_vertices);
+
+    println!("Before path finding");
     // Run bi-directional dijkstra
     let mut path_finding = dijkstra::Dijkstra::new(
-        &vertices,
+        num_vertices,
         &offset_array_up,
         &offset_array_down,
         &edges_up,
         &edges_down,
+        &offset_array_up_predecessors,
+        &offset_array_down_predecessors,
     );
 
     let now = Instant::now();
@@ -160,12 +167,6 @@ fn main() {
         downwards_path_node_id = path_finding.predecessors_down[downwards_path_node_id];
     }
     downwards_path.push(t);
-    // downwards_path.remove(0);
-
-    // Concatenate paths
-    // upwards_path.append(&mut downwards_path);
-
-    // println!("Final path: {:?}", upwards_path);
 
     println!(
         "distance: {}/436627 - in time: {}",
@@ -181,10 +182,6 @@ fn main() {
             continue;
         }
         let e = edges.get(edge).unwrap();
-        println!(
-            "U Using edge {} from {} to {} replacing {} and {}",
-            e.id, e.start_vertex, e.end_vertex, e.edge_id_a, e.edge_id_b
-        );
         final_edge_path.push(e.id);
     }
 
@@ -194,16 +191,12 @@ fn main() {
             continue;
         }
         let e = edges.get(edge).unwrap();
-        println!(
-            "D Using edge {} from {} to {}",
-            e.id, e.start_vertex, e.end_vertex
-        );
         final_edge_path.push(e.id);
     }
 
-    println!("Final edge path: {:?}", final_edge_path);
+    println!("Final edge path length: {:?}", final_edge_path.len());
 
-    // Remove shortcuts
+    // Unpack shortcuts
     let mut unpack_stack: Vec<usize> = Vec::new();
     let mut sanitized_path: Vec<usize> = Vec::new();
     for edge in final_edge_path {
@@ -221,17 +214,10 @@ fn main() {
         }
     }
 
-    println!("Sanitized path: {:?}", sanitized_path);
-    // for el in sanitized_path {
-    //     let edge = edges.get(el).unwrap();
-    //     println!(
-    //         "Edge {} from {} to {}",
-    //         edge.id, edge.start_vertex, edge.end_vertex
-    //     );
-    // }
+    println!("Unpacked path length: {:?}", sanitized_path.len());
 }
 
-fn create_predecessor_offset_array(edges: Vec<Edge>, num_vertices: usize) -> Vec<usize> {
+fn create_predecessor_offset_array(edges: &Vec<Edge>, num_vertices: usize) -> Vec<usize> {
     let mut offset_array: Vec<usize> = vec![edges.len(); num_vertices + 1];
 
     // Initialize variables

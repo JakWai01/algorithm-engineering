@@ -7,7 +7,7 @@ pub(crate) struct Dijkstra<'a> {
     db: Vec<usize>,
     fq: BinaryHeap<PQEntry>,
     bq: BinaryHeap<PQEntry>,
-    vertices: &'a Vec<Vertex>,
+    num_vertices: usize,
     offset_array_up: &'a Vec<usize>,
     offset_array_down: &'a Vec<usize>,
     edges_up: &'a Vec<Edge>,
@@ -16,35 +16,35 @@ pub(crate) struct Dijkstra<'a> {
     pub predecessors_down: Vec<usize>,
     pub predecessor_edges_up: Vec<usize>,
     pub predecessor_edges_down: Vec<usize>,
-    sf: Vec<usize>,
-    sb: Vec<usize>,
+    offset_array_up_predecessors: &'a Vec<usize>,
+    offset_array_down_predecessors: &'a Vec<usize>,
 }
 
 impl<'a> Dijkstra<'a> {
     pub fn new(
-        vertices: &'a Vec<Vertex>,
+        num_vertices: usize,
         offset_array_up: &'a Vec<usize>,
         offset_array_down: &'a Vec<usize>,
         edges_up: &'a Vec<Edge>,
         edges_down: &'a Vec<Edge>,
+        offset_array_up_predecessors: &'a Vec<usize>,
+        offset_array_down_predecessors: &'a Vec<usize>,
     ) -> Self {
-        let df: Vec<usize> = (0..vertices.len()).map(|_| (usize::MAX / 2) - 1).collect();
-        let db: Vec<usize> = (0..vertices.len()).map(|_| (usize::MAX / 2) - 1).collect();
+        let df: Vec<usize> = (0..num_vertices).map(|_| (usize::MAX / 2) - 1).collect();
+        let db: Vec<usize> = (0..num_vertices).map(|_| (usize::MAX / 2) - 1).collect();
         let fq: BinaryHeap<PQEntry> = BinaryHeap::new();
         let bq: BinaryHeap<PQEntry> = BinaryHeap::new();
-        let predecessors_up: Vec<usize> = (0..vertices.len()).map(|_| usize::MAX).collect();
-        let predecessors_down: Vec<usize> = (0..vertices.len()).map(|_| usize::MAX).collect();
-        let predecessor_edges_up: Vec<usize> = (0..vertices.len()).map(|_| usize::MAX).collect();
-        let predecessor_edges_down: Vec<usize> = (0..vertices.len()).map(|_| usize::MAX).collect();
-        let sf: Vec<usize> = Vec::new();
-        let sb: Vec<usize> = Vec::new();
+        let predecessors_up: Vec<usize> = (0..num_vertices).map(|_| usize::MAX).collect();
+        let predecessors_down: Vec<usize> = (0..num_vertices).map(|_| usize::MAX).collect();
+        let predecessor_edges_up: Vec<usize> = (0..num_vertices).map(|_| usize::MAX).collect();
+        let predecessor_edges_down: Vec<usize> = (0..num_vertices).map(|_| usize::MAX).collect();
 
         Dijkstra {
             df,
             db,
             fq,
             bq,
-            vertices,
+            num_vertices,
             offset_array_up,
             offset_array_down,
             edges_up,
@@ -53,26 +53,24 @@ impl<'a> Dijkstra<'a> {
             predecessors_down,
             predecessor_edges_up,
             predecessor_edges_down,
-            sf,
-            sb,
+            offset_array_up_predecessors,
+            offset_array_down_predecessors,
         }
     }
 
     fn reset(&mut self) {
-        self.df = (0..self.vertices.len())
+        self.df = (0..self.num_vertices)
             .map(|_| (usize::MAX / 2) - 1)
             .collect();
-        self.db = (0..self.vertices.len())
+        self.db = (0..self.num_vertices)
             .map(|_| (usize::MAX / 2) - 1)
             .collect();
         self.fq.clear();
         self.bq.clear();
-        self.predecessors_up = (0..self.vertices.len()).map(|_| usize::MAX).collect();
-        self.predecessors_down = (0..self.vertices.len()).map(|_| usize::MAX).collect();
-        self.predecessor_edges_up = (0..self.vertices.len()).map(|_| usize::MAX).collect();
-        self.predecessor_edges_down = (0..self.vertices.len()).map(|_| usize::MAX).collect();
-        self.sf.clear();
-        self.sb.clear();
+        self.predecessors_up = (0..self.num_vertices).map(|_| usize::MAX).collect();
+        self.predecessors_down = (0..self.num_vertices).map(|_| usize::MAX).collect();
+        self.predecessor_edges_up = (0..self.num_vertices).map(|_| usize::MAX).collect();
+        self.predecessor_edges_down = (0..self.num_vertices).map(|_| usize::MAX).collect();
     }
     // Based on https://scholar.archive.org/work/kxils2sde5dwpbbqhddzyltabq/access/wayback/https://publikationen.bibliothek.kit.edu/1000028701/142973925
     pub fn ch_query(&mut self, s: usize, t: usize) -> (f64, usize) {
@@ -104,6 +102,7 @@ impl<'a> Dijkstra<'a> {
         let mut edges = &mut self.edges_up;
         let mut predecessors = &mut self.predecessors_up;
         let mut predecessor_edges = &mut self.predecessor_edges_up;
+        let mut offset_array_predecessors = &mut self.offset_array_up_predecessors;
 
         while (!self.fq.is_empty() || !self.bq.is_empty())
             && d > min(
@@ -133,6 +132,7 @@ impl<'a> Dijkstra<'a> {
                 edges = &mut self.edges_up;
                 predecessors = &mut self.predecessors_up;
                 predecessor_edges = &mut self.predecessor_edges_up;
+                offset_array_predecessors = &mut self.offset_array_up_predecessors
             } else {
                 pq = &mut self.bq;
                 offset_array = &mut self.offset_array_down;
@@ -141,13 +141,25 @@ impl<'a> Dijkstra<'a> {
                 edges = &mut self.edges_down;
                 predecessors = &mut self.predecessors_down;
                 predecessor_edges = &mut self.predecessor_edges_down;
+                offset_array_predecessors = &mut self.offset_array_down_predecessors
             }
 
             if let Some(PQEntry {
-                distance: _,
+                distance,
                 vertex: u,
             }) = pq.pop()
             {
+                // Only store predecessors with higher level for further optimization
+                // TODO: At the moment, this is slower than without sod
+                for e in offset_array_predecessors[u]..offset_array_predecessors[u + 1] {
+                    // println!("Found predecessor: {}", e);
+                    let edge = edges.get(e).unwrap();
+                    if dist[edge.start_vertex] + edge.weight <= distance {
+                        // println!("Found a better path!");
+                        continue;
+                    }
+                }
+
                 if ((dist[u] + not_dist[u]) as f64) < d {
                     d = (dist[u] + not_dist[u]) as f64;
                     current_min = u;

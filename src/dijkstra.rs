@@ -73,7 +73,7 @@ impl<'a> Dijkstra<'a> {
         self.predecessor_edges_down = (0..self.num_vertices).map(|_| usize::MAX).collect();
     }
     // Based on https://scholar.archive.org/work/kxils2sde5dwpbbqhddzyltabq/access/wayback/https://publikationen.bibliothek.kit.edu/1000028701/142973925
-    pub fn ch_query(&mut self, s: usize, t: usize) -> (f64, usize) {
+    pub fn bidirectional_ch_query(&mut self, s: usize, t: usize) -> (f64, usize) {
         // TODO: This takes way too long
         // self.reset();
 
@@ -151,6 +151,8 @@ impl<'a> Dijkstra<'a> {
             {
                 // Only store predecessors with higher level for further optimization
                 // TODO: At the moment, this is slower than without sod
+                // Germany sod: 1822
+                // Germany without sod: 1042
                 for e in offset_array_predecessors[u]..offset_array_predecessors[u + 1] {
                     // println!("Found predecessor: {}", e);
                     let edge = edges.get(e).unwrap();
@@ -182,5 +184,37 @@ impl<'a> Dijkstra<'a> {
             }
         }
         (d, current_min)
+    }
+
+    pub fn ch_query(&mut self, start_node: usize, vertices: &Vec<Vertex>) -> Vec<usize> {
+        self.df = (0..self.num_vertices).map(|_| usize::MAX).collect();
+        self.fq.clear();
+
+        self.df[start_node] = 0;
+        self.fq.push(PQEntry {
+            distance: 0,
+            vertex: start_node,
+        });
+
+        while let Some(PQEntry { distance, vertex }) = self.fq.pop() {
+            for j in self.offset_array_up[vertex]..self.offset_array_up[vertex + 1] {
+                let edge = self.edges_up.get(j).unwrap();
+                if vertices.get(edge.end_vertex).unwrap().level
+                    > vertices.get(edge.start_vertex).unwrap().level
+                {
+                    if self.df[edge.end_vertex] > self.df[vertex] + edge.weight {
+                        self.df[edge.end_vertex] = self.df[vertex] + edge.weight;
+                        self.fq.push(PQEntry {
+                            distance: self.df[vertex] + edge.weight,
+                            vertex: edge.end_vertex,
+                        });
+                        // Store offset index inside of predecessor array
+                        // This should work in O(n)
+                        self.predecessors_up[edge.start_vertex] = j;
+                    }
+                }
+            }
+        }
+        self.df.clone()
     }
 }

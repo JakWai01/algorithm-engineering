@@ -1,10 +1,14 @@
+use core::num;
 use std::{
+    cmp::min,
     env,
     fs::File,
     io::{self, BufRead},
     path::Path,
     time::Instant,
 };
+
+use crate::dijkstra::Dijkstra;
 
 mod dijkstra;
 mod pq;
@@ -146,9 +150,9 @@ fn main() {
     let now = Instant::now();
 
     // 377371 - 754742
-    let s = 377371;
-    let t = 754742;
-    let (distance, current_min) = path_finding.ch_query(s, t);
+    let s = 8371825;
+    let t = 16743651;
+    let (distance, current_min) = path_finding.bidirectional_ch_query(s, t);
 
     let elapsed = now.elapsed();
 
@@ -168,6 +172,7 @@ fn main() {
     }
     downwards_path.push(t);
 
+    // Germany 648681
     println!(
         "distance: {}/436627 - in time: {}",
         distance,
@@ -215,6 +220,45 @@ fn main() {
     }
 
     println!("Unpacked path length: {:?}", sanitized_path.len());
+
+    // PHAST one-to-all
+    // s = 8371825
+    let mut phast_path_finding = Dijkstra::new(
+        num_vertices,
+        &offset_array_up,
+        &offset_array_down,
+        &edges_up,
+        &edges_down,
+        &offset_array_up_predecessors,
+        &offset_array_down_predecessors,
+    );
+
+    println!("Before query");
+
+    let mut d = phast_path_finding.ch_query(s, &vertices);
+
+    println!("Before predecessor offset");
+
+    edges.sort_by_key(|edge| edge.end_vertex);
+    let predecessor_offset_array = create_predecessor_offset_array(&edges, num_vertices);
+
+    println!("Before sorting");
+
+    vertices.sort_by_key(|v| v.level);
+    vertices.reverse();
+
+    println!("Before phast");
+
+    for u in vertices {
+        for e in predecessor_offset_array[u.id]..predecessor_offset_array[u.id + 1] {
+            let edge = edges.get(e).unwrap();
+            if d[edge.start_vertex] + edge.weight < d[u.id] {
+                d[u.id] = d[edge.start_vertex] + edge.weight;
+            }
+        }
+    }
+
+    println!("Finished phast query");
 }
 
 fn create_predecessor_offset_array(edges: &Vec<Edge>, num_vertices: usize) -> Vec<usize> {

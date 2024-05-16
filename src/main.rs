@@ -251,7 +251,7 @@ fn main() {
     vertices.sort_by_key(|v| v.level);
     vertices.reverse();
 
-    let distances = phast_query(
+    let (distances, predecessors) = phast_query(
         &mut phast_path_finding,
         s,
         &vertices,
@@ -307,13 +307,16 @@ fn main() {
         }
 
         for edge in boundary_edges {
-            let distances = phast_query(
+            let (distances, predecessors) = phast_query(
                 &mut arc_flags_path_finding,
                 edge.end_vertex,
                 &vertices,
                 &predecessor_offset_array,
                 &edges,
             );
+
+            // Alle nodes, die irgendwie predecessors sind liegen auf dem kürzesten Pfad mit ziel in dieser Cell
+            // Aber eigentlich wollen wir ja nur die Pfade zu den boundary nodes anderer Regionen, oder?
         }
     }
 }
@@ -324,10 +327,10 @@ fn phast_query(
     vertices: &Vec<Vertex>,
     predecessor_offset_array: &Vec<usize>,
     edges: &Vec<Edge>,
-) -> Vec<usize> {
+) -> (Vec<usize>, Vec<usize>) {
     let phast_time = Instant::now();
 
-    let mut d = phast_path_finding.ch_query(s, &vertices);
+    let (mut d, mut predecessors) = phast_path_finding.ch_query(s, &vertices);
 
     println!(
         "Finished phast query step 1 in {:?}",
@@ -339,8 +342,13 @@ fn phast_query(
     for u in vertices {
         for e in predecessor_offset_array[u.id]..predecessor_offset_array[u.id + 1] {
             let edge = edges.get(e).unwrap();
-            if d[edge.start_vertex] + edge.weight < d[u.id] {
-                d[u.id] = d[edge.start_vertex] + edge.weight;
+            if vertices.get(edge.start_vertex).unwrap().level
+                > vertices.get(edge.end_vertex).unwrap().level
+            {
+                if d[edge.start_vertex] + edge.weight < d[u.id] {
+                    d[u.id] = d[edge.start_vertex] + edge.weight;
+                    predecessors[u.id] = edge.start_vertex
+                }
             }
         }
     }
@@ -350,7 +358,7 @@ fn phast_query(
         phast_time.elapsed().as_micros()
     );
 
-    d.clone()
+    (d.clone(), predecessors.clone())
 }
 
 // Function to determine the bounds of the coordinates

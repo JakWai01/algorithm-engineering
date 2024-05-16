@@ -186,7 +186,11 @@ impl<'a> Dijkstra<'a> {
         (d, current_min)
     }
 
-    pub fn ch_query(&mut self, start_node: usize, vertices: &Vec<Vertex>) -> Vec<usize> {
+    pub fn ch_query(
+        &mut self,
+        start_node: usize,
+        vertices: &Vec<Vertex>,
+    ) -> (Vec<usize>, Vec<usize>) {
         self.df = (0..self.num_vertices).map(|_| usize::MAX).collect();
         self.fq.clear();
 
@@ -220,14 +224,13 @@ impl<'a> Dijkstra<'a> {
                             distance: self.df[vertex] + edge.weight,
                             vertex: edge.end_vertex,
                         });
-                        // Store offset index inside of predecessor array
-                        // This should work in O(n)
-                        self.predecessors_up[edge.start_vertex] = j;
+
+                        self.predecessors_up[edge.end_vertex] = edge.start_vertex;
                     }
                 }
             }
         }
-        self.df.clone()
+        (self.df.clone(), self.predecessors_up.clone())
     }
 
     pub fn ch_query_down(&mut self, start_node: usize, vertices: &Vec<Vertex>) -> Vec<usize> {

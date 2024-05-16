@@ -90,4 +90,4 @@ Der Fehler ist auf beiden Seiten gleich. Wir nehmen die Node mit der geringsten 
 
 ## TODO
 
-- Implement stall on demand
+- Implement dijkstra value reset

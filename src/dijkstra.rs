@@ -229,4 +229,48 @@ impl<'a> Dijkstra<'a> {
         }
         self.df.clone()
     }
+
+    pub fn ch_query_down(&mut self, start_node: usize, vertices: &Vec<Vertex>) -> Vec<usize> {
+        self.df = (0..self.num_vertices).map(|_| usize::MAX).collect();
+        self.fq.clear();
+
+        self.df[start_node] = 0;
+        self.fq.push(PQEntry {
+            distance: 0,
+            vertex: start_node,
+        });
+
+        while let Some(PQEntry { distance, vertex }) = self.fq.pop() {
+            // with 27s
+            for e in self.offset_array_up_predecessors[vertex]
+                ..self.offset_array_up_predecessors[vertex + 1]
+            {
+                // println!("Found predecessor: {}", e);
+                let edge = self.edges_up.get(e).unwrap();
+                if self.df[edge.start_vertex] + edge.weight <= distance {
+                    // println!("Found a better path!");
+                    continue;
+                }
+            }
+
+            for j in self.offset_array_up[vertex]..self.offset_array_up[vertex + 1] {
+                let edge = self.edges_up.get(j).unwrap();
+                if vertices.get(edge.end_vertex).unwrap().level
+                    > vertices.get(edge.start_vertex).unwrap().level
+                {
+                    if self.df[edge.end_vertex] > self.df[vertex] + edge.weight {
+                        self.df[edge.end_vertex] = self.df[vertex] + edge.weight;
+                        self.fq.push(PQEntry {
+                            distance: self.df[vertex] + edge.weight,
+                            vertex: edge.end_vertex,
+                        });
+                        // Store offset index inside of predecessor array
+                        // This should work in O(n)
+                        self.predecessors_up[edge.start_vertex] = j;
+                    }
+                }
+            }
+        }
+        self.df.clone()
+    }
 }

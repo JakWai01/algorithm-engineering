@@ -8,6 +8,10 @@ use std::{
     time::Instant,
 };
 
+extern crate itertools;
+
+use itertools::Itertools;
+
 use crate::dijkstra::Dijkstra;
 
 mod dijkstra;
@@ -21,6 +25,7 @@ struct Vertex {
     lat: f64,
     height: usize,
     level: usize,
+    grid_cell: (f64, f64),
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -55,6 +60,9 @@ fn main() {
     let mut vertices = Vec::new();
     let mut edges: Vec<Edge> = Vec::new();
 
+    let m = 8;
+    let n = 8;
+
     for _ in 0..num_vertices {
         if let Some(line) = lines.next() {
             let l = line.unwrap();
@@ -74,6 +82,7 @@ fn main() {
                 lat,
                 height,
                 level,
+                grid_cell: (f64::INFINITY, f64::INFINITY),
             };
             vertices.push(vertex);
         }
@@ -151,10 +160,10 @@ fn main() {
 
     // stg 377371 - 754742
     // ger 8371825  - 16743651
-    // let s = 377371;
-    // let t = 754742;
-    let s = 8371825;
-    let t = 16743651;
+    let s = 377371;
+    let t = 754742;
+    // let s = 8371825;
+    // let t = 16743651;
     let (distance, current_min) = path_finding.bidirectional_ch_query(s, t);
 
     let elapsed = now.elapsed();
@@ -242,6 +251,103 @@ fn main() {
     vertices.sort_by_key(|v| v.level);
     vertices.reverse();
 
+    let distances = phast_query(
+        &mut phast_path_finding,
+        s,
+        &vertices,
+        &predecessor_offset_array,
+        &edges,
+    );
+
+    // arc flags
+    let (min_bound, max_bound) = find_bounds(&vertices);
+
+    let mut grid: Vec<Vec<Vec<Vertex>>> = vec![vec![Vec::new(); m]; n];
+
+    let mut vertices = vertices.clone();
+
+    for vertex in &mut vertices {
+        let (x_cell, y_cell) = get_grid_cell(*vertex, min_bound, max_bound, m, n);
+        // println!("x_cell: {}, y_cell: {}", x_cell, y_cell);
+        grid[x_cell][y_cell].push(*vertex);
+        vertex.grid_cell = (x_cell as f64, y_cell as f64);
+    }
+
+    // Sort vertices based on grid_cell, so we can iterate over the grid cells one by one
+    vertices.sort_by(|x, y| x.grid_cell.partial_cmp(&y.grid_cell).unwrap());
+
+    // Iterate over grid_cells one by one to perform queries into all other cells
+    let res = vertices
+        .into_iter()
+        .group_by(|v| v.grid_cell)
+        .into_iter()
+        .inspect(|(cell, group)| println!("Current cell: {:?}", cell))
+        .map(|(cell, group)| cell)
+        .collect::<Vec<(f64, f64)>>();
+
+    // let current_vertex = vertices.get(0).unwrap();
+
+    // for vertex in &vertices {}
+
+    // println!("Created grid!");
+
+    // for (i, row) in grid.iter().enumerate() {
+    //     for (j, cell) in row.iter().enumerate() {
+    //         println!("Cell ({}, {}): {:?}", i, j, cell.len());
+    //     }
+    // }
+
+    // println!(
+    //     "Vertices test id 0 : {:?}",
+    //     vertices.get(0).unwrap().grid_cell
+    // );
+
+    // println!("Vertices last: {:?}", vertices.last().unwrap().grid_cell);
+
+    // // Determine boundary edges
+    // let boundary_edges: Vec<&Edge> = edges
+    //     .iter()
+    //     .filter(|e| {
+    //         vertices.get(e.start_vertex).unwrap().grid_cell
+    //             != vertices.get(e.end_vertex).unwrap().grid_cell
+    //     })
+    //     .collect::<Vec<&Edge>>();
+
+    // println!("Boundary edges len: {}", boundary_edges.len());
+    // println!("Original edges len: {}", edges.len());
+
+    // let mut arc_flags: Vec<Vec<bool>> = vec![vec![false; m * n]; edges.len()];
+    // let mut arc_flags_path_finding = Dijkstra::new(
+    //     num_vertices,
+    //     &offset_array_up,
+    //     &offset_array_down,
+    //     &edges_up,
+    //     &edges_down,
+    //     &offset_array_up_predecessors,
+    //     &offset_array_down_predecessors,
+    // );
+
+    // for edge in boundary_edges {
+    //     // arc_flags_path_finding.ch_query(edge.end_vertex, &vertices)
+
+    //     // Das wichtige ist die Werte dann im richtigen Feld einzutragen
+    //     let distances = phast_query(
+    //         &mut arc_flags_path_finding,
+    //         edge.end_vertex,
+    //         &vertices,
+    //         &predecessor_offset_array,
+    //         &edges,
+    //     );
+    // }
+}
+
+fn phast_query(
+    phast_path_finding: &mut Dijkstra,
+    s: usize,
+    vertices: &Vec<Vertex>,
+    predecessor_offset_array: &Vec<usize>,
+    edges: &Vec<Edge>,
+) -> Vec<usize> {
     let phast_time = Instant::now();
 
     let mut d = phast_path_finding.ch_query(s, &vertices);
@@ -266,6 +372,41 @@ fn main() {
         "Finished phast query step 2 in {:?}",
         phast_time.elapsed().as_micros()
     );
+
+    d.clone()
+}
+
+// Function to determine the bounds of the coordinates
+fn find_bounds(vertices: &Vec<Vertex>) -> ((f64, f64), (f64, f64)) {
+    let min_x = vertices.iter().map(|c| c.lon).fold(f64::INFINITY, f64::min);
+    let max_x = vertices
+        .iter()
+        .map(|c| c.lon)
+        .fold(f64::NEG_INFINITY, f64::max);
+    let min_y = vertices.iter().map(|c| c.lat).fold(f64::INFINITY, f64::min);
+    let max_y = vertices
+        .iter()
+        .map(|c| c.lat)
+        .fold(f64::NEG_INFINITY, f64::max);
+
+    ((min_x, min_y), (max_x, max_y))
+}
+
+// Function to determine which grid cell a coordinate belongs to
+fn get_grid_cell(
+    vertex: Vertex,
+    min: (f64, f64),
+    max: (f64, f64),
+    m: usize,
+    n: usize,
+) -> (usize, usize) {
+    let x_ratio = (vertex.lon - min.0) / (max.0 - min.0);
+    let y_ratio = (vertex.lat - min.1) / (max.1 - min.1);
+
+    let x_index = (x_ratio * (m as f64)).floor() as usize;
+    let y_index = (y_ratio * (n as f64)).floor() as usize;
+
+    (x_index.min(m - 1), y_index.min(n - 1)) // Ensure indices are within bounds
 }
 
 fn create_predecessor_offset_array(edges: &Vec<Edge>, num_vertices: usize) -> Vec<usize> {

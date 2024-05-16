@@ -316,61 +316,6 @@ fn main() {
             );
         }
     }
-
-    // let current_vertex = vertices.get(0).unwrap();
-
-    // for vertex in &vertices {}
-
-    // println!("Created grid!");
-
-    // for (i, row) in grid.iter().enumerate() {
-    //     for (j, cell) in row.iter().enumerate() {
-    //         println!("Cell ({}, {}): {:?}", i, j, cell.len());
-    //     }
-    // }
-
-    // println!(
-    //     "Vertices test id 0 : {:?}",
-    //     vertices.get(0).unwrap().grid_cell
-    // );
-
-    // println!("Vertices last: {:?}", vertices.last().unwrap().grid_cell);
-
-    // // Determine boundary edges
-    // let boundary_edges: Vec<&Edge> = edges
-    //     .iter()
-    //     .filter(|e| {
-    //         vertices.get(e.start_vertex).unwrap().grid_cell
-    //             != vertices.get(e.end_vertex).unwrap().grid_cell
-    //     })
-    //     .collect::<Vec<&Edge>>();
-
-    // println!("Boundary edges len: {}", boundary_edges.len());
-    // println!("Original edges len: {}", edges.len());
-
-    // let mut arc_flags: Vec<Vec<bool>> = vec![vec![false; m * n]; edges.len()];
-    // let mut arc_flags_path_finding = Dijkstra::new(
-    //     num_vertices,
-    //     &offset_array_up,
-    //     &offset_array_down,
-    //     &edges_up,
-    //     &edges_down,
-    //     &offset_array_up_predecessors,
-    //     &offset_array_down_predecessors,
-    // );
-
-    // for edge in boundary_edges {
-    //     // arc_flags_path_finding.ch_query(edge.end_vertex, &vertices)
-
-    //     // Das wichtige ist die Werte dann im richtigen Feld einzutragen
-    //     let distances = phast_query(
-    //         &mut arc_flags_path_finding,
-    //         edge.end_vertex,
-    //         &vertices,
-    //         &predecessor_offset_array,
-    //         &edges,
-    //     );
-    // }
 }
 
 fn phast_query(

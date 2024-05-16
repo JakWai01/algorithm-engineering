@@ -149,7 +149,10 @@ fn main() {
 
     let now = Instant::now();
 
-    // 377371 - 754742
+    // stg 377371 - 754742
+    // ger 8371825  - 16743651
+    // let s = 377371;
+    // let t = 754742;
     let s = 8371825;
     let t = 16743651;
     let (distance, current_min) = path_finding.bidirectional_ch_query(s, t);
@@ -233,21 +236,22 @@ fn main() {
         &offset_array_down_predecessors,
     );
 
-    println!("Before query");
-
-    let mut d = phast_path_finding.ch_query(s, &vertices);
-
-    println!("Before predecessor offset");
-
     edges.sort_by_key(|edge| edge.end_vertex);
     let predecessor_offset_array = create_predecessor_offset_array(&edges, num_vertices);
-
-    println!("Before sorting");
 
     vertices.sort_by_key(|v| v.level);
     vertices.reverse();
 
-    println!("Before phast");
+    let phast_time = Instant::now();
+
+    let mut d = phast_path_finding.ch_query(s, &vertices);
+
+    println!(
+        "Finished phast query step 1 in {:?}",
+        phast_time.elapsed().as_micros()
+    );
+
+    let phast_time = Instant::now();
 
     for u in vertices {
         for e in predecessor_offset_array[u.id]..predecessor_offset_array[u.id + 1] {
@@ -258,7 +262,10 @@ fn main() {
         }
     }
 
-    println!("Finished phast query");
+    println!(
+        "Finished phast query step 2 in {:?}",
+        phast_time.elapsed().as_micros()
+    );
 }
 
 fn create_predecessor_offset_array(edges: &Vec<Edge>, num_vertices: usize) -> Vec<usize> {

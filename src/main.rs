@@ -277,13 +277,45 @@ fn main() {
     vertices.sort_by(|x, y| x.grid_cell.partial_cmp(&y.grid_cell).unwrap());
 
     // Iterate over grid_cells one by one to perform queries into all other cells
-    let res = vertices
-        .into_iter()
-        .group_by(|v| v.grid_cell)
-        .into_iter()
-        .inspect(|(cell, group)| println!("Current cell: {:?}", cell))
-        .map(|(cell, group)| cell)
-        .collect::<Vec<(f64, f64)>>();
+    let groups = vertices.iter().group_by(|v| v.grid_cell);
+
+    let mut arc_flags_path_finding = Dijkstra::new(
+        num_vertices,
+        &offset_array_up,
+        &offset_array_down,
+        &edges_up,
+        &edges_down,
+        &offset_array_up_predecessors,
+        &offset_array_down_predecessors,
+    );
+
+    for (cell, group) in groups.into_iter() {
+        let mut boundary_edges: Vec<&Edge> = Vec::new();
+
+        for vertex in group {
+            for edge in predecessor_offset_array[vertex.id]..predecessor_offset_array[vertex.id + 1]
+            {
+                let edge = edges.get(edge).unwrap();
+                if vertices.get(edge.start_vertex).unwrap().grid_cell
+                    != vertices.get(edge.end_vertex).unwrap().grid_cell
+                    && vertices.get(edge.end_vertex).unwrap().grid_cell == cell
+                {
+                    // println!("Found boundary node!");
+                    boundary_edges.push(edge);
+                }
+            }
+        }
+
+        for edge in boundary_edges {
+            let distances = phast_query(
+                &mut arc_flags_path_finding,
+                edge.end_vertex,
+                &vertices,
+                &predecessor_offset_array,
+                &edges,
+            );
+        }
+    }
 
     // let current_vertex = vertices.get(0).unwrap();
 

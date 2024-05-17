@@ -294,12 +294,12 @@ fn main() {
     let mut arc_flags: Vec<Vec<bool>> = vec![vec![false; m_rows * n_columns]; edges.len()];
 
     for (cell, group) in groups.into_iter() {
-        println!(
-            "Cell: {:?}, id: {:?}",
-            cell,
-            cell_to_id(cell, m_rows, n_columns)
-        );
-        continue;
+        // println!(
+        //     "Cell: {:?}, id: {:?}",
+        //     cell,
+        //     cell_to_id(cell, m_rows, n_columns)
+        // );
+        // continue;
 
         let mut boundary_edges: Vec<&Edge> = Vec::new();
 
@@ -322,7 +322,9 @@ fn main() {
             // Start backwards search on boundary edges: A boundary edge is an edge with the end_vertex IN the current cell
 
             // Flip all edges
-            edges
+            let mut reverse_edges = edges.clone();
+
+            reverse_edges
                 .iter_mut()
                 .for_each(|edge| mem::swap(&mut edge.start_vertex, &mut edge.end_vertex));
 
@@ -339,8 +341,9 @@ fn main() {
                 if vertex.id != edge.end_vertex {
                     let mut current_pred = vertex.id;
 
-                    let predecessor_edge_id = predecessor_edges[current_pred];
-                    let predecessor_edge = edges.get(predecessor_edge_id).unwrap();
+                    let mut predecessor_edge_id = predecessor_edges[current_pred];
+                    println!("Predecessor edge id: {}", predecessor_edge_id);
+                    let mut predecessor_edge = edges.get(predecessor_edge_id).unwrap();
 
                     // Go back from the current node until we reach the start node inside of the target region
                     while predecessor_edge.start_vertex != edge.end_vertex {

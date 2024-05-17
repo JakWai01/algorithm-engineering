@@ -5,6 +5,7 @@ use std::{
     fs::File,
     io::{self, BufRead},
     path::Path,
+    thread::current,
     time::Instant,
 };
 
@@ -59,9 +60,6 @@ fn main() {
 
     let mut vertices = Vec::new();
     let mut edges: Vec<Edge> = Vec::new();
-
-    let m = 8;
-    let n = 8;
 
     for _ in 0..num_vertices {
         if let Some(line) = lines.next() {
@@ -260,14 +258,17 @@ fn main() {
     );
 
     // arc flags
+    let m_rows = 8;
+    let n_columns = 8;
+
     let (min_bound, max_bound) = find_bounds(&vertices);
 
-    let mut grid: Vec<Vec<Vec<Vertex>>> = vec![vec![Vec::new(); m]; n];
+    let mut grid: Vec<Vec<Vec<Vertex>>> = vec![vec![Vec::new(); n_columns]; m_rows];
 
     let mut vertices = vertices.clone();
 
     for vertex in &mut vertices {
-        let (x_cell, y_cell) = get_grid_cell(*vertex, min_bound, max_bound, m, n);
+        let (x_cell, y_cell) = get_grid_cell(*vertex, min_bound, max_bound, m_rows, n_columns);
         // println!("x_cell: {}, y_cell: {}", x_cell, y_cell);
         grid[x_cell][y_cell].push(*vertex);
         vertex.grid_cell = (x_cell as f64, y_cell as f64);
@@ -289,7 +290,18 @@ fn main() {
         &offset_array_down_predecessors,
     );
 
+    let mut arc_flags: Vec<Vec<bool>> = vec![vec![false; m_rows * n_columns]; edges.len()];
+
     for (cell, group) in groups.into_iter() {
+        // temp
+        println!(
+            "Cell: {:?}, id: {:?}",
+            cell,
+            cell_to_id(cell, m_rows, n_columns)
+        );
+        continue;
+        // ---
+
         let mut boundary_edges: Vec<&Edge> = Vec::new();
 
         for vertex in group {
@@ -315,10 +327,29 @@ fn main() {
                 &edges,
             );
 
-            // Alle nodes, die irgendwie predecessors sind liegen auf dem kürzesten Pfad mit ziel in dieser Cell
-            // Aber eigentlich wollen wir ja nur die Pfade zu den boundary nodes anderer Regionen, oder?
+            // Construct shortest path tree
+            for vertex in &vertices {
+                if vertex.id != edge.end_vertex {
+                    let mut current_pred = vertex.id;
+
+                    while predecessors[current_pred] != edge.end_vertex {
+                        current_pred = predecessors[current_pred];
+
+                        // Mark arc flag
+                        arc_flags[edge.id][cell_to_id(
+                            vertices.get(current_pred).unwrap().grid_cell,
+                            m_rows,
+                            n_columns,
+                        ) as usize] = true;
+                    }
+                }
+            }
         }
     }
+}
+
+fn cell_to_id(cell: (f64, f64), m_rows: usize, n_columns: usize) -> f64 {
+    return (cell.0 * n_columns as f64) + cell.1;
 }
 
 fn phast_query(

@@ -254,11 +254,12 @@ fn main() {
 
     // 2. Step: Consider all nodes u from high to low level and set d(u) = min{d(u), d(v) + c(v, u)}
     //          for nodes v with level(v) > level(u) and (v, u) ∈ E
-    vertices.sort_by_key(|v| v.level);
-    vertices.reverse();
+    let mut vertices_by_level_desc = vertices.clone();
+    vertices_by_level_desc.sort_by_key(|v| v.level);
+    vertices_by_level_desc.reverse();
 
-    assert_eq!(vertices.first().unwrap().level, 138);
-    assert_eq!(vertices.last().unwrap().level, 0);
+    assert_eq!(vertices_by_level_desc.first().unwrap().level, 138);
+    assert_eq!(vertices_by_level_desc.last().unwrap().level, 0);
 
     println!("Create predecessor array");
     edges.sort_by_key(|edge| edge.end_vertex);
@@ -266,7 +267,7 @@ fn main() {
 
     println!("Starting step 2");
     // Consider all nodes in inverse level order
-    for vertex in &vertices {
+    for vertex in &vertices_by_level_desc {
         // println!("Vertex: {:?}", vertex);
         // Check incoming edges (u,v) with level(v) > level(u)
         for incoming_edge_id in predecessor_offset[vertex.id]..predecessor_offset[vertex.id + 1] {
@@ -285,14 +286,23 @@ fn main() {
                 if distances[vertex.id]
                     > distances[incoming_edge.start_vertex] + incoming_edge.weight
                 {
-                    if vertex.id == 183053 {
-                        println!(
-                            "Relaxing {} > {} + {}",
-                            distances[vertex.id],
-                            distances[incoming_edge.start_vertex],
-                            incoming_edge.weight
-                        );
-                    }
+                    // if vertex.id == 183053 {
+                    // println!(
+                    //     "Relaxing {} > {} + {}",
+                    //     distances[vertex.id],
+                    //     distances[incoming_edge.start_vertex],
+                    //     incoming_edge.weight
+                    // );
+
+                    // println!("Currently looking at {:?}", vertex);
+                    // println!(
+                    //     "predecessor vertex: {:?} -> {:?}",
+                    //     incoming_edge.start_vertex,
+                    //     vertices.get(incoming_edge.start_vertex).unwrap()
+                    // );
+
+                    // println!("incoming edge: {:?}", incoming_edge);
+                    // }
                     // println!("Relaxing");
                     distances[vertex.id] =
                         distances[incoming_edge.start_vertex] + incoming_edge.weight;
@@ -303,7 +313,6 @@ fn main() {
         }
     }
 
-    // OVERFLOW!
     assert_eq!(164584, distances[183053]);
 
     assert_eq!(435351, distances[754743]);

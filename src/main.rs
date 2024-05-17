@@ -4,6 +4,7 @@ use std::{
     env,
     fs::File,
     io::{self, BufRead},
+    mem,
     path::Path,
     thread::current,
     time::Instant,
@@ -249,7 +250,7 @@ fn main() {
     vertices.sort_by_key(|v| v.level);
     vertices.reverse();
 
-    let (distances, predecessors) = phast_query(
+    let (distances, predecessors, predecessor_edges) = phast_query(
         &mut phast_path_finding,
         s,
         &vertices,
@@ -293,14 +294,12 @@ fn main() {
     let mut arc_flags: Vec<Vec<bool>> = vec![vec![false; m_rows * n_columns]; edges.len()];
 
     for (cell, group) in groups.into_iter() {
-        // temp
         println!(
             "Cell: {:?}, id: {:?}",
             cell,
             cell_to_id(cell, m_rows, n_columns)
         );
         continue;
-        // ---
 
         let mut boundary_edges: Vec<&Edge> = Vec::new();
 
@@ -318,8 +317,16 @@ fn main() {
             }
         }
 
+        // TODO: Think about start vs end node here
         for edge in boundary_edges {
-            let (distances, predecessors) = phast_query(
+            // Start backwards search on boundary edges: A boundary edge is an edge with the end_vertex IN the current cell
+
+            // Flip all edges
+            edges
+                .iter_mut()
+                .for_each(|edge| mem::swap(&mut edge.start_vertex, &mut edge.end_vertex));
+
+            let (distances, predecessors, predecessor_edges) = phast_query(
                 &mut arc_flags_path_finding,
                 edge.end_vertex,
                 &vertices,
@@ -332,15 +339,19 @@ fn main() {
                 if vertex.id != edge.end_vertex {
                     let mut current_pred = vertex.id;
 
-                    while predecessors[current_pred] != edge.end_vertex {
-                        current_pred = predecessors[current_pred];
+                    let predecessor_edge_id = predecessor_edges[current_pred];
+                    let predecessor_edge = edges.get(predecessor_edge_id).unwrap();
 
+                    // Go back from the current node until we reach the start node inside of the target region
+                    while predecessor_edge.start_vertex != edge.end_vertex {
                         // Mark arc flag
-                        arc_flags[edge.id][cell_to_id(
-                            vertices.get(current_pred).unwrap().grid_cell,
-                            m_rows,
-                            n_columns,
-                        ) as usize] = true;
+                        arc_flags[predecessor_edge.id]
+                            [cell_to_id(cell, m_rows, n_columns) as usize] = true;
+
+                        // Prepare data for next iteration
+                        current_pred = predecessors[predecessor_edge.start_vertex];
+                        predecessor_edge_id = predecessor_edges[current_pred];
+                        predecessor_edge = edges.get(predecessor_edge_id).unwrap();
                     }
                 }
             }
@@ -358,10 +369,11 @@ fn phast_query(
     vertices: &Vec<Vertex>,
     predecessor_offset_array: &Vec<usize>,
     edges: &Vec<Edge>,
-) -> (Vec<usize>, Vec<usize>) {
+) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
     let phast_time = Instant::now();
 
-    let (mut d, mut predecessors) = phast_path_finding.ch_query(s, &vertices);
+    let (mut d, mut predecessors, mut predecessor_edges) =
+        phast_path_finding.ch_query(s, &vertices);
 
     println!(
         "Finished phast query step 1 in {:?}",
@@ -378,7 +390,8 @@ fn phast_query(
             {
                 if d[edge.start_vertex] + edge.weight < d[u.id] {
                     d[u.id] = d[edge.start_vertex] + edge.weight;
-                    predecessors[u.id] = edge.start_vertex
+                    predecessors[u.id] = edge.start_vertex;
+                    predecessor_edges[u.id] = edge.id;
                 }
             }
         }
@@ -389,7 +402,7 @@ fn phast_query(
         phast_time.elapsed().as_micros()
     );
 
-    (d.clone(), predecessors.clone())
+    (d.clone(), predecessors.clone(), predecessor_edges.clone())
 }
 
 // Function to determine the bounds of the coordinates

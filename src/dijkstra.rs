@@ -190,7 +190,7 @@ impl<'a> Dijkstra<'a> {
         &mut self,
         start_node: usize,
         vertices: &Vec<Vertex>,
-    ) -> (Vec<usize>, Vec<usize>) {
+    ) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
         self.df = (0..self.num_vertices).map(|_| usize::MAX).collect();
         self.fq.clear();
 
@@ -226,11 +226,16 @@ impl<'a> Dijkstra<'a> {
                         });
 
                         self.predecessors_up[edge.end_vertex] = edge.start_vertex;
+                        self.predecessor_edges_up[edge.end_vertex] = edge.id;
                     }
                 }
             }
         }
-        (self.df.clone(), self.predecessors_up.clone())
+        (
+            self.df.clone(),
+            self.predecessors_up.clone(),
+            self.predecessor_edges_up.clone(),
+        )
     }
 
     pub fn ch_query_down(&mut self, start_node: usize, vertices: &Vec<Vertex>) -> Vec<usize> {

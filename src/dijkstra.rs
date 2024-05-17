@@ -193,7 +193,6 @@ impl<'a> Dijkstra<'a> {
     ) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
         self.df = (0..self.num_vertices).map(|_| usize::MAX).collect();
         self.fq.clear();
-
         self.df[start_node] = 0;
         self.fq.push(PQEntry {
             distance: 0,
@@ -201,18 +200,17 @@ impl<'a> Dijkstra<'a> {
         });
 
         while let Some(PQEntry { distance, vertex }) = self.fq.pop() {
-            // with 27s
+            // Stall-on-demand
             for e in self.offset_array_up_predecessors[vertex]
                 ..self.offset_array_up_predecessors[vertex + 1]
             {
-                // println!("Found predecessor: {}", e);
                 let edge = self.edges_up.get(e).unwrap();
                 if self.df[edge.start_vertex] + edge.weight <= distance {
-                    // println!("Found a better path!");
                     continue;
                 }
             }
 
+            // Relaxation
             for j in self.offset_array_up[vertex]..self.offset_array_up[vertex + 1] {
                 let edge = self.edges_up.get(j).unwrap();
                 if vertices.get(edge.end_vertex).unwrap().level

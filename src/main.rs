@@ -1,21 +1,14 @@
-use core::num;
 use std::{
-    cmp::min,
     env,
     fs::File,
     io::{self, BufRead},
     mem,
     path::Path,
-    thread::current,
     time::Instant,
 };
-
 extern crate itertools;
-
-use itertools::Itertools;
-
 use crate::dijkstra::Dijkstra;
-
+use itertools::Itertools;
 mod dijkstra;
 mod pq;
 
@@ -135,15 +128,12 @@ fn main() {
     predecessor_upward_edges.sort_by_key(|edge| edge.end_vertex);
     predecessor_downward_edges.sort_by_key(|edge| edge.end_vertex);
 
-    println!("Before array up preds");
     let offset_array_up_predecessors: Vec<usize> =
         create_predecessor_offset_array(&predecessor_upward_edges, num_vertices);
 
-    println!("Before array down preds");
     let offset_array_down_predecessors: Vec<usize> =
         create_predecessor_offset_array(&predecessor_downward_edges, num_vertices);
 
-    println!("Before path finding");
     // Run bi-directional dijkstra
     let mut path_finding = dijkstra::Dijkstra::new(
         num_vertices,
@@ -157,10 +147,11 @@ fn main() {
 
     let now = Instant::now();
 
-    // stg 377371 - 754742
-    // ger 8371825  - 16743651
+    // Stuttgart
     let s = 377371;
     let t = 754742;
+
+    // Germany
     // let s = 8371825;
     // let t = 16743651;
     let (distance, current_min) = path_finding.bidirectional_ch_query(s, t);
@@ -183,14 +174,19 @@ fn main() {
     }
     downwards_path.push(t);
 
+    println!("Upwards path: {:?}", upwards_path);
+    println!("Downwards path: {:?}", downwards_path);
+
+    // Stuttgart 436627
     // Germany 648681
+    assert_eq!(distance, 436627.0);
+
     println!(
-        "distance: {}/436627 - in time: {}",
-        distance,
+        "Finished bi-directional CH query in: {}us",
         elapsed.as_micros()
     );
 
-    let mut final_edge_path: Vec<usize> = Vec::new();
+    let mut edge_path: Vec<usize> = Vec::new();
 
     for vertex in upwards_path {
         let edge = path_finding.predecessor_edges_up[vertex];
@@ -198,7 +194,8 @@ fn main() {
             continue;
         }
         let e = edges.get(edge).unwrap();
-        final_edge_path.push(e.id);
+        edge_path.push(e.id);
+        println!("Walking edge from {} to {}", e.start_vertex, e.end_vertex);
     }
 
     for vertex in downwards_path {
@@ -207,33 +204,42 @@ fn main() {
             continue;
         }
         let e = edges.get(edge).unwrap();
-        final_edge_path.push(e.id);
+        edge_path.push(e.id);
+        println!("Walking edge from {} to {}", e.start_vertex, e.end_vertex);
     }
 
-    println!("Final edge path length: {:?}", final_edge_path.len());
+    println!("Final edge path length: {:?}", edge_path);
 
     // Unpack shortcuts
     let mut unpack_stack: Vec<usize> = Vec::new();
     let mut sanitized_path: Vec<usize> = Vec::new();
-    for edge in final_edge_path {
+    for edge in edge_path {
         unpack_stack.push(edge);
         let e = edges.get(edge).unwrap();
         while !unpack_stack.is_empty() {
             let edge_id = unpack_stack.pop().unwrap();
             let edge = edges.get(edge_id).unwrap();
             if edge.edge_id_a != -1 && edge.edge_id_b != -1 {
-                unpack_stack.push(edge.edge_id_a as usize);
                 unpack_stack.push(edge.edge_id_b as usize);
+                unpack_stack.push(edge.edge_id_a as usize);
             } else {
                 sanitized_path.push(edge.id);
+                println!(
+                    "Added edge from {} to {}",
+                    edge.start_vertex, edge.end_vertex
+                )
             }
         }
     }
 
-    println!("Unpacked path length: {:?}", sanitized_path.len());
+    // println!("Unpacked path length: {:?}", sanitized_path);
 
-    // PHAST one-to-all
-    // s = 8371825
+    // _____  _    _           _____ _______
+    // |  __ \| |  | |   /\    / ____|__   __|
+    // | |__) | |__| |  /  \  | (___    | |
+    // |  ___/|  __  | / /\ \  \___ \   | |
+    // | |    | |  | |/ ____ \ ____) |  | |
+    // |_|    |_|  |_/_/    \_\_____/   |_|
     let mut phast_path_finding = Dijkstra::new(
         num_vertices,
         &offset_array_up,
@@ -257,6 +263,8 @@ fn main() {
         &predecessor_offset_array,
         &edges,
     );
+
+    assert_eq!(435351, distances[754743]);
 
     // arc flags
     let m_rows = 8;
@@ -294,13 +302,6 @@ fn main() {
     let mut arc_flags: Vec<Vec<bool>> = vec![vec![false; m_rows * n_columns]; edges.len()];
 
     for (cell, group) in groups.into_iter() {
-        // println!(
-        //     "Cell: {:?}, id: {:?}",
-        //     cell,
-        //     cell_to_id(cell, m_rows, n_columns)
-        // );
-        // continue;
-
         let mut boundary_edges: Vec<&Edge> = Vec::new();
 
         for vertex in group {
@@ -317,13 +318,8 @@ fn main() {
             }
         }
 
-        // TODO: Think about start vs end node here
         for edge in boundary_edges {
-            // Start backwards search on boundary edges: A boundary edge is an edge with the end_vertex IN the current cell
-
-            // Flip all edges
             let mut reverse_edges = edges.clone();
-
             reverse_edges
                 .iter_mut()
                 .for_each(|edge| mem::swap(&mut edge.start_vertex, &mut edge.end_vertex));
@@ -339,10 +335,17 @@ fn main() {
             // Construct shortest path tree
             for vertex in &vertices {
                 if vertex.id != edge.end_vertex {
+                    // Handle case where vertex was not reachable from s
+                    if predecessor_edges[vertex.id] == usize::MAX {
+                        continue;
+                    }
+
                     let mut current_pred = vertex.id;
 
+                    println!("Current pred: {:?}", current_pred);
                     let mut predecessor_edge_id = predecessor_edges[current_pred];
                     println!("Predecessor edge id: {}", predecessor_edge_id);
+
                     let mut predecessor_edge = edges.get(predecessor_edge_id).unwrap();
 
                     // Go back from the current node until we reach the start node inside of the target region
@@ -408,7 +411,6 @@ fn phast_query(
     (d.clone(), predecessors.clone(), predecessor_edges.clone())
 }
 
-// Function to determine the bounds of the coordinates
 fn find_bounds(vertices: &Vec<Vertex>) -> ((f64, f64), (f64, f64)) {
     let min_x = vertices.iter().map(|c| c.lon).fold(f64::INFINITY, f64::min);
     let max_x = vertices
@@ -424,7 +426,6 @@ fn find_bounds(vertices: &Vec<Vertex>) -> ((f64, f64), (f64, f64)) {
     ((min_x, min_y), (max_x, max_y))
 }
 
-// Function to determine which grid cell a coordinate belongs to
 fn get_grid_cell(
     vertex: Vertex,
     min: (f64, f64),
@@ -444,13 +445,9 @@ fn get_grid_cell(
 fn create_predecessor_offset_array(edges: &Vec<Edge>, num_vertices: usize) -> Vec<usize> {
     let mut offset_array: Vec<usize> = vec![edges.len(); num_vertices + 1];
 
-    // Initialize variables
     let mut previous_vertex_id = 0;
     offset_array[0] = 0;
 
-    // If the the start_vertex changes in the edges vector, store the offset in the offset vector
-    // and set this offset for all start_vertex id's that have been skipped in this last step.
-    // However, I am not sure if this case even occurs in our road network.
     for (edge_index, edge) in edges.iter().enumerate() {
         if edge.end_vertex != previous_vertex_id {
             for j in previous_vertex_id + 1..=edge.end_vertex {
@@ -465,13 +462,9 @@ fn create_predecessor_offset_array(edges: &Vec<Edge>, num_vertices: usize) -> Ve
 fn create_offset_array(edges: &Vec<Edge>, num_vertices: usize) -> Vec<usize> {
     let mut offset_array: Vec<usize> = vec![edges.len(); num_vertices + 1];
 
-    // Initialize variables
     let mut previous_vertex_id = 0;
     offset_array[0] = 0;
 
-    // If the the start_vertex changes in the edges vector, store the offset in the offset vector
-    // and set this offset for all start_vertex id's that have been skipped in this last step.
-    // However, I am not sure if this case even occurs in our road network.
     for (edge_index, edge) in edges.iter().enumerate() {
         if edge.start_vertex != previous_vertex_id {
             for j in previous_vertex_id + 1..=edge.start_vertex {

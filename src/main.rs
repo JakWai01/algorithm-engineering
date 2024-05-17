@@ -242,7 +242,7 @@ fn main() {
 
     // 1. Step: Execute a Dijkstra on the up-graph of source node s
     let up_graph_ch = Instant::now();
-    let (mut d, mut predecessors, mut predecessor_edges) =
+    let (mut distances, mut predecessors, mut predecessor_edges) =
         phast_path_finding.ch_query(s, &vertices);
     println!(
         "Executed PHAST up-graph search in: {:?}ms",
@@ -250,7 +250,7 @@ fn main() {
     );
 
     // Distance to known peek node from s to t (This is not actually the peek node in this search)
-    assert_eq!(164584, d[183053]);
+    assert_eq!(164584, distances[183053]);
 
     // 2. Step: Consider all nodes u from high to low level and set d(u) = min{d(u), d(v) + c(v, u)}
     //          for nodes v with level(v) > level(u) and (v, u) ∈ E
@@ -260,23 +260,53 @@ fn main() {
     assert_eq!(vertices.first().unwrap().level, 138);
     assert_eq!(vertices.last().unwrap().level, 0);
 
-    // for u in vertices {
-    //     for e in predecessor_offset_array[u.id]..predecessor_offset_array[u.id + 1] {
-    //         let edge = edges.get(e).unwrap();
-    //         if vertices.get(edge.start_vertex).unwrap().level
-    //             > vertices.get(edge.end_vertex).unwrap().level
-    //         {
-    //             if d[edge.start_vertex] + edge.weight < d[u.id] {
-    //                 d[u.id] = d[edge.start_vertex] + edge.weight;
-    //                 predecessors[u.id] = edge.start_vertex;
-    //                 predecessor_edges[u.id] = edge.id;
-    //             }
-    //         }
-    //     }
-    // }
+    println!("Create predecessor array");
+    edges.sort_by_key(|edge| edge.end_vertex);
+    let predecessor_offset = create_predecessor_offset_array(&edges, num_vertices);
 
-    // edges.sort_by_key(|edge| edge.end_vertex);
-    // let predecessor_offset_array = create_predecessor_offset_array(&edges, num_vertices);
+    println!("Starting step 2");
+    // Consider all nodes in inverse level order
+    for vertex in &vertices {
+        // println!("Vertex: {:?}", vertex);
+        // Check incoming edges (u,v) with level(v) > level(u)
+        for incoming_edge_id in predecessor_offset[vertex.id]..predecessor_offset[vertex.id + 1] {
+            let incoming_edge = edges.get(incoming_edge_id).unwrap();
+            // println!("Incoming edge: {:?}", incoming_edge);
+            // println!(
+            //     "Start vertex: {:?}",
+            //     vertices.get(incoming_edge.start_vertex).unwrap().level
+            // );
+
+            // We do not want to check the peeks, we want to check the lower nodes and update them
+            if vertices.get(incoming_edge.start_vertex).unwrap().level
+                > vertices.get(incoming_edge.end_vertex).unwrap().level
+            {
+                // println!("Incoming edge from lower level vertex!");
+                if distances[vertex.id]
+                    > distances[incoming_edge.start_vertex] + incoming_edge.weight
+                {
+                    if vertex.id == 183053 {
+                        println!(
+                            "Relaxing {} > {} + {}",
+                            distances[vertex.id],
+                            distances[incoming_edge.start_vertex],
+                            incoming_edge.weight
+                        );
+                    }
+                    // println!("Relaxing");
+                    distances[vertex.id] =
+                        distances[incoming_edge.start_vertex] + incoming_edge.weight;
+                    predecessors[vertex.id] = incoming_edge.start_vertex;
+                    predecessor_edges[vertex.id] = incoming_edge.id;
+                }
+            }
+        }
+    }
+
+    // OVERFLOW!
+    assert_eq!(164584, distances[183053]);
+
+    assert_eq!(435351, distances[754743]);
 
     // let (distances, predecessors, predecessor_edges) = phast_query(
     //     &mut phast_path_finding,
@@ -285,8 +315,6 @@ fn main() {
     //     &predecessor_offset_array,
     //     &edges,
     // );
-
-    // assert_eq!(435351, distances[754743]);
 
     //                      ______ _
     //     /\              |  ____| |

@@ -254,6 +254,7 @@ fn main() {
 
     // 2. Step: Consider all nodes u from high to low level and set d(u) = min{d(u), d(v) + c(v, u)}
     //          for nodes v with level(v) > level(u) and (v, u) ∈ E
+    let phast_relaxation = Instant::now();
     let mut vertices_by_level_desc = vertices.clone();
     vertices_by_level_desc.sort_by_key(|v| v.level);
     vertices_by_level_desc.reverse();
@@ -261,49 +262,22 @@ fn main() {
     assert_eq!(vertices_by_level_desc.first().unwrap().level, 138);
     assert_eq!(vertices_by_level_desc.last().unwrap().level, 0);
 
-    println!("Create predecessor array");
     edges.sort_by_key(|edge| edge.end_vertex);
     let predecessor_offset = create_predecessor_offset_array(&edges, num_vertices);
 
-    println!("Starting step 2");
     // Consider all nodes in inverse level order
     for vertex in &vertices_by_level_desc {
-        // println!("Vertex: {:?}", vertex);
         // Check incoming edges (u,v) with level(v) > level(u)
         for incoming_edge_id in predecessor_offset[vertex.id]..predecessor_offset[vertex.id + 1] {
             let incoming_edge = edges.get(incoming_edge_id).unwrap();
-            // println!("Incoming edge: {:?}", incoming_edge);
-            // println!(
-            //     "Start vertex: {:?}",
-            //     vertices.get(incoming_edge.start_vertex).unwrap().level
-            // );
 
             // We do not want to check the peeks, we want to check the lower nodes and update them
             if vertices.get(incoming_edge.start_vertex).unwrap().level
                 > vertices.get(incoming_edge.end_vertex).unwrap().level
             {
-                // println!("Incoming edge from lower level vertex!");
                 if distances[vertex.id]
                     > distances[incoming_edge.start_vertex] + incoming_edge.weight
                 {
-                    // if vertex.id == 183053 {
-                    // println!(
-                    //     "Relaxing {} > {} + {}",
-                    //     distances[vertex.id],
-                    //     distances[incoming_edge.start_vertex],
-                    //     incoming_edge.weight
-                    // );
-
-                    // println!("Currently looking at {:?}", vertex);
-                    // println!(
-                    //     "predecessor vertex: {:?} -> {:?}",
-                    //     incoming_edge.start_vertex,
-                    //     vertices.get(incoming_edge.start_vertex).unwrap()
-                    // );
-
-                    // println!("incoming edge: {:?}", incoming_edge);
-                    // }
-                    // println!("Relaxing");
                     distances[vertex.id] =
                         distances[incoming_edge.start_vertex] + incoming_edge.weight;
                     predecessors[vertex.id] = incoming_edge.start_vertex;
@@ -313,17 +287,14 @@ fn main() {
         }
     }
 
+    println!(
+        "Executed PHAST relaxation in: {:?}ms",
+        phast_relaxation.elapsed().as_millis()
+    );
+
     assert_eq!(164584, distances[183053]);
-
     assert_eq!(435351, distances[754743]);
-
-    // let (distances, predecessors, predecessor_edges) = phast_query(
-    //     &mut phast_path_finding,
-    //     s,
-    //     &vertices,
-    //     &predecessor_offset_array,
-    //     &edges,
-    // );
+    assert_eq!(435675, distances[754751]);
 
     //                      ______ _
     //     /\              |  ____| |

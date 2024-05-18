@@ -323,16 +323,6 @@ fn main() {
     // The group_by function groups consecutive elements into groups
     vertices.sort_by(|x, y| x.grid_cell.partial_cmp(&y.grid_cell).unwrap());
 
-    let mut arc_flags_path_finding = Dijkstra::new(
-        num_vertices,
-        &offset_array_up,
-        &offset_array_down,
-        &edges_up,
-        &edges_down,
-        &offset_array_up_predecessors,
-        &offset_array_down_predecessors,
-    );
-
     let mut arc_flags: Vec<Vec<bool>> = vec![vec![false; m_rows * n_columns]; edges.len()];
 
     let mut reverse_edges = edges.clone();
@@ -345,6 +335,45 @@ fn main() {
 
     let reverse_predecessor_offset_array =
         create_predecessor_offset_array(&reverse_edges, num_vertices);
+
+    // Prepare the data again but this time for the reverse query
+    let (mut reverse_edges_up, mut reverse_edges_down): (Vec<Edge>, Vec<Edge>) = reverse_edges
+        .iter()
+        .partition(|edge| vertices[edge.start_vertex].level < vertices[edge.end_vertex].level);
+
+    reverse_edges_down.iter_mut().for_each(|edge| {
+        std::mem::swap(&mut edge.start_vertex, &mut edge.end_vertex);
+    });
+
+    reverse_edges_up.sort_by_key(|edge| edge.start_vertex);
+    reverse_edges_down.sort_by_key(|edge| edge.start_vertex);
+
+    let reverse_offset_array_up: Vec<usize> = create_offset_array(&reverse_edges_up, num_vertices);
+    let reverse_offset_array_down: Vec<usize> =
+        create_offset_array(&reverse_edges_down, num_vertices);
+
+    // Create offset_array of predecessors as well
+    let mut reverse_predecessor_upward_edges = reverse_edges_up.clone();
+    let mut reverse_predecessor_downward_edges = reverse_edges_down.clone();
+
+    reverse_predecessor_upward_edges.sort_by_key(|edge| edge.end_vertex);
+    reverse_predecessor_downward_edges.sort_by_key(|edge| edge.end_vertex);
+
+    let reverse_offset_array_up_predecessors: Vec<usize> =
+        create_predecessor_offset_array(&reverse_predecessor_upward_edges, num_vertices);
+
+    let reverse_offset_array_down_predecessors: Vec<usize> =
+        create_predecessor_offset_array(&reverse_predecessor_downward_edges, num_vertices);
+
+    let mut arc_flags_path_finding = Dijkstra::new(
+        num_vertices,
+        &reverse_offset_array_up,
+        &reverse_offset_array_down,
+        &reverse_edges_up,
+        &reverse_edges_down,
+        &reverse_offset_array_up_predecessors,
+        &reverse_offset_array_down_predecessors,
+    );
 
     for (cell, group) in &vertices.iter().group_by(|v| v.grid_cell) {
         let mut boundary_edges: Vec<&Edge> = Vec::new();
@@ -372,7 +401,7 @@ fn main() {
 
         println!("Boundary edges length: {:?}", boundary_edges.len());
 
-        for edge in boundary_edges {
+        for boundary_edge in boundary_edges {
             // println!("{} {}", edge.start_vertex, edge.end_vertex);
             // Flip edges to create the reverse graph
             // let mut reverse_edges = edges.clone();
@@ -384,7 +413,7 @@ fn main() {
             // Run one-to-all query on reverse graph
             let (distances, predecessors, predecessor_edges) = phast_query(
                 &mut arc_flags_path_finding,
-                edge.end_vertex,
+                boundary_edge.end_vertex,
                 &vertices,
                 &reverse_predecessor_offset_array,
                 &reverse_edges,
@@ -392,7 +421,7 @@ fn main() {
 
             // Construct shortest path tree
             for vertex in &vertices {
-                if vertex.id != edge.end_vertex {
+                if vertex.id != boundary_edge.end_vertex {
                     // Handle case where vertex was not reachable from s
                     if predecessor_edges[vertex.id] == usize::MAX {
                         continue;
@@ -407,7 +436,21 @@ fn main() {
                     let mut predecessor_edge = reverse_edges.get(predecessor_edge_id).unwrap();
 
                     // Go back from the current node until we reach the start node inside of the target region
-                    while predecessor_edge.start_vertex != edge.end_vertex {
+                    // while predecessor_edge.start_vertex != edge.end_vertex {
+                    //     println!("Current predecessor_edge id: {}", predecessor_edge_id);
+                    //     println!("Current predecessor_edge: {:?}", predecessor_edge);
+                    //     // Mark arc flag
+                    //     arc_flags[predecessor_edge.id]
+                    //         [cell_to_id(cell, m_rows, n_columns) as usize] = true;
+
+                    //     // Prepare data for next iteration
+                    //     current_pred = predecessors[predecessor_edge.start_vertex];
+                    //     predecessor_edge_id = predecessor_edges[current_pred];
+                    //     predecessor_edge = reverse_edges.get(predecessor_edge_id).unwrap();
+                    // }
+
+                    // We want do-while since we also want to set the arc flags a last time when the end_vertex is the start vertex
+                    loop {
                         println!("Current predecessor_edge id: {}", predecessor_edge_id);
                         println!("Current predecessor_edge: {:?}", predecessor_edge);
                         // Mark arc flag
@@ -415,12 +458,23 @@ fn main() {
                             [cell_to_id(cell, m_rows, n_columns) as usize] = true;
 
                         // Prepare data for next iteration
-                        current_pred = predecessors[predecessor_edge.start_vertex];
+                        // current_pred = predecessors[predecessor_edge.start_vertex];
+                        // should be the same as current_pred = predecessor_edge.start_vertex;
+                        current_pred = predecessors[vertex.id];
+                        println!("Updated current predecessor: {:?}", current_pred);
                         predecessor_edge_id = predecessor_edges[current_pred];
+                        println!("Updated predecessor edge id {:?}", predecessor_edge_id);
                         predecessor_edge = reverse_edges.get(predecessor_edge_id).unwrap();
+                        println!("Updated predecessor edge {:?}", predecessor_edge);
+
+                        if predecessor_edge.start_vertex == boundary_edge.end_vertex {
+                            break;
+                        }
                     }
                 }
             }
+
+            break;
         }
     }
 }

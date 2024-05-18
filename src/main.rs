@@ -411,26 +411,32 @@ fn main() {
 
             // println!("{} {}", edge.start_vertex, edge.end_vertex);
             // Run one-to-all query on reverse graph
-            let (distances, predecessors, predecessor_edges) = phast_query(
+            let start = boundary_edge.end_vertex;
+
+            let (_, predecessors, predecessor_edges) = phast_query(
                 &mut arc_flags_path_finding,
-                boundary_edge.end_vertex,
+                start,
                 &vertices,
                 &reverse_predecessor_offset_array,
                 &reverse_edges,
             );
 
+            println!("Start of one-to-all search {:?}", start);
+
             // Construct shortest path tree
             for vertex in &vertices {
-                if vertex.id != boundary_edge.end_vertex {
+                println!("True vertex.id {}", vertex.id);
+                let mut current_vertex = vertex.id;
+
+                if current_vertex != start {
                     // Handle case where vertex was not reachable from s
-                    if predecessor_edges[vertex.id] == usize::MAX {
-                        continue;
-                    }
+                    // if predecessor_edges[vertex.id] == usize::MAX {
+                    //     continue;
+                    // }
 
-                    let mut current_pred = vertex.id;
-                    println!("Current pred: {:?}", current_pred);
+                    println!("Current pred: {:?}", current_vertex);
 
-                    let mut predecessor_edge_id = predecessor_edges[current_pred];
+                    let mut predecessor_edge_id = predecessor_edges[current_vertex];
                     println!("Predecessor edge id: {}", predecessor_edge_id);
 
                     let mut predecessor_edge = reverse_edges.get(predecessor_edge_id).unwrap();
@@ -457,19 +463,20 @@ fn main() {
                         arc_flags[predecessor_edge.id]
                             [cell_to_id(cell, m_rows, n_columns) as usize] = true;
 
+                        current_vertex = predecessors[vertex.id];
+                        if current_vertex == start {
+                            break;
+                        }
+
                         // Prepare data for next iteration
                         // current_pred = predecessors[predecessor_edge.start_vertex];
                         // should be the same as current_pred = predecessor_edge.start_vertex;
-                        current_pred = predecessors[vertex.id];
-                        println!("Updated current predecessor: {:?}", current_pred);
-                        predecessor_edge_id = predecessor_edges[current_pred];
+                        // current_vertex = predecessors[vertex.id];
+                        println!("Updated current predecessor: {:?}", current_vertex);
+                        predecessor_edge_id = predecessor_edges[current_vertex];
                         println!("Updated predecessor edge id {:?}", predecessor_edge_id);
                         predecessor_edge = reverse_edges.get(predecessor_edge_id).unwrap();
                         println!("Updated predecessor edge {:?}", predecessor_edge);
-
-                        if predecessor_edge.start_vertex == boundary_edge.end_vertex {
-                            break;
-                        }
                     }
                 }
             }

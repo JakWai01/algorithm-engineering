@@ -262,7 +262,7 @@ fn main() {
     assert_eq!(vertices_by_level_desc.first().unwrap().level, 138);
     assert_eq!(vertices_by_level_desc.last().unwrap().level, 0);
 
-    edges.sort_by_key(|edge| edge.end_vertex);
+    edges.sort_by_key(|edge: &Edge| edge.end_vertex);
     let predecessor_offset = create_predecessor_offset_array(&edges, num_vertices);
 
     // Consider all nodes in inverse level order
@@ -305,102 +305,124 @@ fn main() {
     //                                      __/ |
     //                                     |___/
 
-    // let m_rows = 8;
-    // let n_columns = 8;
+    let m_rows = 8;
+    let n_columns = 6;
 
-    // let (min_bound, max_bound) = find_bounds(&vertices);
+    let (min_bound, max_bound) = find_bounds(&vertices);
 
-    // let mut grid: Vec<Vec<Vec<Vertex>>> = vec![vec![Vec::new(); n_columns]; m_rows];
+    println!("Min bound: {:?}, max_bound: {:?}", min_bound, max_bound);
 
-    // let mut vertices = vertices.clone();
+    let mut vertices = vertices.clone();
 
-    // for vertex in &mut vertices {
-    //     let (x_cell, y_cell) = get_grid_cell(*vertex, min_bound, max_bound, m_rows, n_columns);
-    //     // println!("x_cell: {}, y_cell: {}", x_cell, y_cell);
-    //     grid[x_cell][y_cell].push(*vertex);
-    //     vertex.grid_cell = (x_cell as f64, y_cell as f64);
-    // }
+    for vertex in &mut vertices {
+        let (x_cell, y_cell) = get_grid_cell(*vertex, min_bound, max_bound, m_rows, n_columns);
+        // println!("x_cell: {}, y_cell: {}", x_cell, y_cell);
+        vertex.grid_cell = (x_cell as f64, y_cell as f64);
+    }
 
-    // // Sort vertices based on grid_cell, so we can iterate over the grid cells one by one
-    // vertices.sort_by(|x, y| x.grid_cell.partial_cmp(&y.grid_cell).unwrap());
+    // The group_by function groups consecutive elements into groups
+    vertices.sort_by(|x, y| x.grid_cell.partial_cmp(&y.grid_cell).unwrap());
 
-    // // Iterate over grid_cells one by one to perform queries into all other cells
-    // let groups = vertices.iter().group_by(|v| v.grid_cell);
+    let mut arc_flags_path_finding = Dijkstra::new(
+        num_vertices,
+        &offset_array_up,
+        &offset_array_down,
+        &edges_up,
+        &edges_down,
+        &offset_array_up_predecessors,
+        &offset_array_down_predecessors,
+    );
 
-    // let mut arc_flags_path_finding = Dijkstra::new(
-    //     num_vertices,
-    //     &offset_array_up,
-    //     &offset_array_down,
-    //     &edges_up,
-    //     &edges_down,
-    //     &offset_array_up_predecessors,
-    //     &offset_array_down_predecessors,
-    // );
+    let mut arc_flags: Vec<Vec<bool>> = vec![vec![false; m_rows * n_columns]; edges.len()];
 
-    // let mut arc_flags: Vec<Vec<bool>> = vec![vec![false; m_rows * n_columns]; edges.len()];
+    let mut reverse_edges = edges.clone();
+    reverse_edges
+        .iter_mut()
+        .for_each(|edge| mem::swap(&mut edge.start_vertex, &mut edge.end_vertex));
 
-    // for (cell, group) in groups.into_iter() {
-    //     let mut boundary_edges: Vec<&Edge> = Vec::new();
+    // Sort by end_vertex again for the creation of the predecessor array to work
+    reverse_edges.sort_by_key(|edge: &Edge| edge.end_vertex);
 
-    //     for vertex in group {
-    //         for edge in predecessor_offset_array[vertex.id]..predecessor_offset_array[vertex.id + 1]
-    //         {
-    //             let edge = edges.get(edge).unwrap();
-    //             if vertices.get(edge.start_vertex).unwrap().grid_cell
-    //                 != vertices.get(edge.end_vertex).unwrap().grid_cell
-    //                 && vertices.get(edge.end_vertex).unwrap().grid_cell == cell
-    //             {
-    //                 // println!("Found boundary node!");
-    //                 boundary_edges.push(edge);
-    //             }
-    //         }
-    //     }
+    let reverse_predecessor_offset_array =
+        create_predecessor_offset_array(&reverse_edges, num_vertices);
 
-    //     for edge in boundary_edges {
-    //         let mut reverse_edges = edges.clone();
-    //         reverse_edges
-    //             .iter_mut()
-    //             .for_each(|edge| mem::swap(&mut edge.start_vertex, &mut edge.end_vertex));
+    for (cell, group) in &vertices.iter().group_by(|v| v.grid_cell) {
+        let mut boundary_edges: Vec<&Edge> = Vec::new();
+        println!("Looking at cell: {:?}", cell);
+        // println!("Elements in group: {:?}", group.collect::<Vec<_>>().len());
+        // Determine all boundary edges in this group
+        for vertex in group {
+            for edge in predecessor_offset[vertex.id]..predecessor_offset[vertex.id + 1] {
+                let edge = edges.get(edge).unwrap();
+                if vertices.get(edge.start_vertex).unwrap().grid_cell
+                    != vertices.get(edge.end_vertex).unwrap().grid_cell
+                    && vertices.get(edge.end_vertex).unwrap().grid_cell == cell
+                {
+                    // println!("Boundary Edge for vertex: {:?}, {:?}", vertex, edge);
+                    // println!(
+                    //     "Cell of boundary edge: start {:?} end {:?}",
+                    //     vertices.get(edge.start_vertex).unwrap().grid_cell,
+                    //     vertices.get(edge.end_vertex).unwrap().grid_cell
+                    // );
+                    // println!("{} {}", edge.start_vertex, edge.end_vertex);
+                    boundary_edges.push(edge);
+                }
+            }
+        }
 
-    //         let (distances, predecessors, predecessor_edges) = phast_query(
-    //             &mut arc_flags_path_finding,
-    //             edge.end_vertex,
-    //             &vertices,
-    //             &predecessor_offset_array,
-    //             &edges,
-    //         );
+        println!("Boundary edges length: {:?}", boundary_edges.len());
 
-    //         // Construct shortest path tree
-    //         for vertex in &vertices {
-    //             if vertex.id != edge.end_vertex {
-    //                 // Handle case where vertex was not reachable from s
-    //                 if predecessor_edges[vertex.id] == usize::MAX {
-    //                     continue;
-    //                 }
+        for edge in boundary_edges {
+            // println!("{} {}", edge.start_vertex, edge.end_vertex);
+            // Flip edges to create the reverse graph
+            // let mut reverse_edges = edges.clone();
+            // reverse_edges
+            //     .iter_mut()
+            //     .for_each(|edge| mem::swap(&mut edge.start_vertex, &mut edge.end_vertex));
 
-    //                 let mut current_pred = vertex.id;
+            // println!("{} {}", edge.start_vertex, edge.end_vertex);
+            // Run one-to-all query on reverse graph
+            let (distances, predecessors, predecessor_edges) = phast_query(
+                &mut arc_flags_path_finding,
+                edge.end_vertex,
+                &vertices,
+                &reverse_predecessor_offset_array,
+                &reverse_edges,
+            );
 
-    //                 println!("Current pred: {:?}", current_pred);
-    //                 let mut predecessor_edge_id = predecessor_edges[current_pred];
-    //                 println!("Predecessor edge id: {}", predecessor_edge_id);
+            // Construct shortest path tree
+            for vertex in &vertices {
+                if vertex.id != edge.end_vertex {
+                    // Handle case where vertex was not reachable from s
+                    if predecessor_edges[vertex.id] == usize::MAX {
+                        continue;
+                    }
 
-    //                 let mut predecessor_edge = edges.get(predecessor_edge_id).unwrap();
+                    let mut current_pred = vertex.id;
+                    println!("Current pred: {:?}", current_pred);
 
-    //                 // Go back from the current node until we reach the start node inside of the target region
-    //                 while predecessor_edge.start_vertex != edge.end_vertex {
-    //                     // Mark arc flag
-    //                     arc_flags[predecessor_edge.id]
-    //                         [cell_to_id(cell, m_rows, n_columns) as usize] = true;
+                    let mut predecessor_edge_id = predecessor_edges[current_pred];
+                    println!("Predecessor edge id: {}", predecessor_edge_id);
 
-    //                     // Prepare data for next iteration
-    //                     current_pred = predecessors[predecessor_edge.start_vertex];
-    //                     predecessor_edge_id = predecessor_edges[current_pred];
-    //                     predecessor_edge = edges.get(predecessor_edge_id).unwrap();
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
+                    let mut predecessor_edge = reverse_edges.get(predecessor_edge_id).unwrap();
+
+                    // Go back from the current node until we reach the start node inside of the target region
+                    while predecessor_edge.start_vertex != edge.end_vertex {
+                        println!("Current predecessor_edge id: {}", predecessor_edge_id);
+                        println!("Current predecessor_edge: {:?}", predecessor_edge);
+                        // Mark arc flag
+                        arc_flags[predecessor_edge.id]
+                            [cell_to_id(cell, m_rows, n_columns) as usize] = true;
+
+                        // Prepare data for next iteration
+                        current_pred = predecessors[predecessor_edge.start_vertex];
+                        predecessor_edge_id = predecessor_edges[current_pred];
+                        predecessor_edge = reverse_edges.get(predecessor_edge_id).unwrap();
+                    }
+                }
+            }
+        }
+    }
 }
 
 fn cell_to_id(cell: (f64, f64), m_rows: usize, n_columns: usize) -> f64 {

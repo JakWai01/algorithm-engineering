@@ -148,13 +148,17 @@ fn main() {
     let now = Instant::now();
 
     // Stuttgart
-    let s = 377371;
-    let t = 754742;
+    // let s = 377371;
+    // let t = 754742;
+    let s = 695445;
+    let t = 7610;
 
     // Germany
     // let s = 8371825;
     // let t = 16743651;
     let (distance, current_min) = path_finding.bidirectional_ch_query(s, t);
+
+    // println!("Distance: {}", distance);
 
     let elapsed = now.elapsed();
 
@@ -176,7 +180,7 @@ fn main() {
 
     // Stuttgart 436627
     // Germany 648681
-    assert_eq!(distance, 436627.0);
+    // assert_eq!(distance, 436627.0);
 
     println!(
         "Finished bi-directional CH query in: {}us",
@@ -202,6 +206,17 @@ fn main() {
         let e = edges.get(edge).unwrap();
         edge_path.push(e.id);
     }
+
+    println!("Edge path: {:?}", edge_path);
+
+    let qwe = edges.get(2827630).unwrap();
+    println!("Edge: {:?}", qwe);
+
+    println!(
+        "Start {:?} End {:?}",
+        vertices.get(qwe.start_vertex).unwrap(),
+        vertices.get(qwe.end_vertex).unwrap()
+    );
 
     // Unpack shortcuts
     let mut unpack_stack: Vec<usize> = Vec::new();
@@ -240,61 +255,52 @@ fn main() {
         &offset_array_down_predecessors,
     );
 
-    // 1. Step: Execute a Dijkstra on the up-graph of source node s
-    let up_graph_ch = Instant::now();
-    let (mut distances, mut predecessors, mut predecessor_edges) =
-        phast_path_finding.ch_query(s, &vertices);
-    println!(
-        "Executed PHAST up-graph search in: {:?}ms",
-        up_graph_ch.elapsed().as_millis()
-    );
-
-    // Distance to known peek node from s to t (This is not actually the peek node in this search)
-    assert_eq!(164584, distances[183053]);
-
-    // 2. Step: Consider all nodes u from high to low level and set d(u) = min{d(u), d(v) + c(v, u)}
-    //          for nodes v with level(v) > level(u) and (v, u) ∈ E
-    let phast_relaxation = Instant::now();
-    let mut vertices_by_level_desc = vertices.clone();
-    vertices_by_level_desc.sort_by_key(|v| v.level);
-    vertices_by_level_desc.reverse();
-
-    assert_eq!(vertices_by_level_desc.first().unwrap().level, 138);
-    assert_eq!(vertices_by_level_desc.last().unwrap().level, 0);
+    let s = 695445;
 
     edges.sort_by_key(|edge: &Edge| edge.end_vertex);
     let predecessor_offset = create_predecessor_offset_array(&edges, num_vertices);
 
-    // Consider all nodes in inverse level order
-    for vertex in &vertices_by_level_desc {
-        // Check incoming edges (u,v) with level(v) > level(u)
-        for incoming_edge_id in predecessor_offset[vertex.id]..predecessor_offset[vertex.id + 1] {
-            let incoming_edge = edges.get(incoming_edge_id).unwrap();
+    let (distances, predecessors, predecessor_edges) = phast_query(
+        &mut phast_path_finding,
+        s,
+        &vertices,
+        &predecessor_offset,
+        &edges,
+    );
 
-            // We do not want to check the peeks, we want to check the lower nodes and update them
-            if vertices.get(incoming_edge.start_vertex).unwrap().level
-                > vertices.get(incoming_edge.end_vertex).unwrap().level
-            {
-                if distances[vertex.id]
-                    > distances[incoming_edge.start_vertex] + incoming_edge.weight
-                {
-                    distances[vertex.id] =
-                        distances[incoming_edge.start_vertex] + incoming_edge.weight;
-                    predecessors[vertex.id] = incoming_edge.start_vertex;
-                    predecessor_edges[vertex.id] = incoming_edge.id;
-                }
-            }
-        }
+    let mut current = 7610;
+    println!("LEVEL of 7610: {}", vertices.get(current).unwrap().level);
+
+    while predecessors[current] != 695445 {
+        println!(
+            "Predecessor of {}: {}, level of {}: {}",
+            current,
+            predecessors[current],
+            predecessors[current],
+            vertices.get(predecessors[current]).unwrap().level
+        );
+        println!(
+            "Predecessor edge of {}: {}",
+            current, predecessor_edges[current]
+        );
+        current = predecessors[current]
     }
 
     println!(
-        "Executed PHAST relaxation in: {:?}ms",
-        phast_relaxation.elapsed().as_millis()
+        "Predecessor of 52908: {}, level: {}",
+        predecessors[52908],
+        vertices.get(predecessors[52908]).unwrap().level
     );
+    println!("Predecessor edge of 52908: {}", predecessor_edges[52908]);
 
-    assert_eq!(164584, distances[183053]);
-    assert_eq!(435351, distances[754743]);
-    assert_eq!(435675, distances[754751]);
+    println!("Distances {}", distances[7610]);
+
+    // assert!(false);
+    // Note: The PHAST part seems to be working!
+
+    // assert_eq!(164584, distances[183053]);
+    // assert_eq!(435351, distances[754743]);
+    // assert_eq!(435675, distances[754751]);
 
     //                      ______ _
     //     /\              |  ____| |
@@ -305,6 +311,7 @@ fn main() {
     //                                      __/ |
     //                                     |___/
 
+    println!("ARC FLAGS");
     let m_rows = 8;
     let n_columns = 6;
 
@@ -312,19 +319,19 @@ fn main() {
 
     println!("Min bound: {:?}, max_bound: {:?}", min_bound, max_bound);
 
-    let mut vertices = vertices.clone();
-
     for vertex in &mut vertices {
         let (x_cell, y_cell) = get_grid_cell(*vertex, min_bound, max_bound, m_rows, n_columns);
-        // println!("x_cell: {}, y_cell: {}", x_cell, y_cell);
         vertex.grid_cell = (x_cell as f64, y_cell as f64);
     }
 
+    let mut vertices_grid = vertices.clone();
+
     // The group_by function groups consecutive elements into groups
-    vertices.sort_by(|x, y| x.grid_cell.partial_cmp(&y.grid_cell).unwrap());
+    vertices_grid.sort_by(|x, y| x.grid_cell.partial_cmp(&y.grid_cell).unwrap());
 
     let mut arc_flags: Vec<Vec<bool>> = vec![vec![false; m_rows * n_columns]; edges.len()];
 
+    // Construct reverse graph for reverse dijkstra
     let mut reverse_edges = edges.clone();
     reverse_edges
         .iter_mut()
@@ -333,14 +340,78 @@ fn main() {
     // Sort by end_vertex again for the creation of the predecessor array to work
     reverse_edges.sort_by_key(|edge: &Edge| edge.end_vertex);
 
+    let iowe = reverse_edges.get(2827630).unwrap();
+    println!("Edge: {:?}", iowe);
+
+    println!(
+        "Start {:?}, End {:?}",
+        vertices.get(iowe.start_vertex).unwrap(),
+        vertices.get(iowe.end_vertex).unwrap()
+    );
+
+    assert_eq!(7610, reverse_edges.get(2827630).unwrap().start_vertex);
+
     let reverse_predecessor_offset_array =
         create_predecessor_offset_array(&reverse_edges, num_vertices);
+
+    // Hier ist auf jeden Fall der richtige predecessor dabei
+    for pred in reverse_predecessor_offset_array[695491]..reverse_predecessor_offset_array[695492] {
+        println!(
+            "Predecessor of 695491: {:?}",
+            reverse_edges.get(pred).unwrap()
+        );
+    }
+
+    // Bis hier hin ist es richtig
+
+    // Ist die edge in reverse_edges?
+    println!(
+        "DAS IST DIE EDGE IM REVERSE ARRAY: {:?}",
+        reverse_edges.get(2827630).unwrap()
+    );
+    let abc = reverse_edges.get(2827630).unwrap();
+    println!(
+        "DAS SIND DIE LEVEL VON START UND ENDPUKT: {} {}",
+        vertices.get(abc.start_vertex).unwrap().level,
+        vertices.get(abc.end_vertex).unwrap().level
+    );
 
     // Prepare the data again but this time for the reverse query
     let (mut reverse_edges_up, mut reverse_edges_down): (Vec<Edge>, Vec<Edge>) = reverse_edges
         .iter()
-        .partition(|edge| vertices[edge.start_vertex].level < vertices[edge.end_vertex].level);
+        // Flip levels?
+        .partition(|edge| {
+            if edge.id == 2827630 {
+                println!("edge.start_vertex: {}", edge.start_vertex);
+                println!("LEVEL: {}", vertices.get(edge.start_vertex).unwrap().level);
+                println!("edge.end_vertex: {}", edge.end_vertex);
+                println!("LEVEL: {}", vertices.get(edge.end_vertex).unwrap().level);
+            }
+            vertices.get(edge.start_vertex).unwrap().level
+                < vertices.get(edge.end_vertex).unwrap().level
+        });
 
+    for edge in &reverse_edges_down {
+        if edge.id == 2827630 {
+            println!("IM FALSCHEN ARRAY")
+        }
+    }
+
+    println!("reverse_edges_up len: {}", reverse_edges_up.len());
+    for edge in &reverse_edges_up {
+        if edge.id == 2827630 {
+            println!("DAS IST DIE EDGE: {:?}", edge);
+        }
+        if edge.start_vertex == 7610 && edge.end_vertex == 695491 {
+            println!("REVERSE EDGES UP IS CORRECT")
+        }
+
+        if edge.end_vertex == 7610 && edge.start_vertex == 695491 {
+            println!("REVERSE EDGES UP IS WRONG")
+        }
+    }
+
+    // Ich glaube die brauchen wir gar nicht - wir machen ja nur die "upwards" search
     reverse_edges_down.iter_mut().for_each(|edge| {
         std::mem::swap(&mut edge.start_vertex, &mut edge.end_vertex);
     });
@@ -375,7 +446,8 @@ fn main() {
         &reverse_offset_array_down_predecessors,
     );
 
-    for (cell, group) in &vertices.iter().group_by(|v| v.grid_cell) {
+    // Here the main arc-flags logic starts
+    for (cell, group) in &vertices_grid.iter().group_by(|v| v.grid_cell) {
         let mut boundary_edges: Vec<&Edge> = Vec::new();
         println!("Looking at cell: {:?}", cell);
         // println!("Elements in group: {:?}", group.collect::<Vec<_>>().len());
@@ -402,6 +474,7 @@ fn main() {
         println!("Boundary edges length: {:?}", boundary_edges.len());
 
         for boundary_edge in boundary_edges {
+            println!("Current boundary edge: {:?}", boundary_edge);
             // println!("{} {}", edge.start_vertex, edge.end_vertex);
             // Flip edges to create the reverse graph
             // let mut reverse_edges = edges.clone();
@@ -412,8 +485,9 @@ fn main() {
             // println!("{} {}", edge.start_vertex, edge.end_vertex);
             // Run one-to-all query on reverse graph
             let start = boundary_edge.end_vertex;
+            println!("Start of one-to-all search {:?}", start);
 
-            let (_, predecessors, predecessor_edges) = phast_query(
+            let (distances, predecessors, predecessor_edges) = phast_query(
                 &mut arc_flags_path_finding,
                 start,
                 &vertices,
@@ -421,7 +495,16 @@ fn main() {
                 &reverse_edges,
             );
 
-            println!("Start of one-to-all search {:?}", start);
+            // println!(
+            //     "Distance after phast-query in arc flags from {}: {}",
+            //     start, distances[695445]
+            // );
+
+            // Hier kommt ein falscher Wert raus, obwohl der Algorithmus funktioniert
+            // Es muss also am input liegen
+            // Wie verhalten sich die levels im korrekten Pfad?
+            println!("Predecessor of 695445 {}", predecessors[695445]);
+            assert_eq!(53612, distances[695445]);
 
             // Construct shortest path tree
             for vertex in &vertices {
@@ -434,7 +517,7 @@ fn main() {
                     //     continue;
                     // }
 
-                    println!("Current pred: {:?}", current_vertex);
+                    println!("Current vertex: {:?}", current_vertex);
 
                     let mut predecessor_edge_id = predecessor_edges[current_vertex];
                     println!("Predecessor edge id: {}", predecessor_edge_id);
@@ -494,42 +577,72 @@ fn phast_query(
     phast_path_finding: &mut Dijkstra,
     s: usize,
     vertices: &Vec<Vertex>,
-    predecessor_offset_array: &Vec<usize>,
+    predecessor_offset: &Vec<usize>,
     edges: &Vec<Edge>,
 ) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
-    let phast_time = Instant::now();
-
-    let (mut d, mut predecessors, mut predecessor_edges) =
+    // 1. Step: Execute a Dijkstra on the up-graph of source node s
+    let up_graph_ch = Instant::now();
+    let (mut distances, mut predecessors, mut predecessor_edges) =
         phast_path_finding.ch_query(s, &vertices);
-
     println!(
-        "Finished phast query step 1 in {:?}",
-        phast_time.elapsed().as_micros()
+        "Executed PHAST up-graph search in: {:?}ms",
+        up_graph_ch.elapsed().as_millis()
     );
 
-    let phast_time = Instant::now();
+    // Distance to known peek node from s to t (This is not actually the peek node in this search)
+    // assert_eq!(164584, distances[183053]);
 
-    for u in vertices {
-        for e in predecessor_offset_array[u.id]..predecessor_offset_array[u.id + 1] {
-            let edge = edges.get(e).unwrap();
-            if vertices.get(edge.start_vertex).unwrap().level
-                > vertices.get(edge.end_vertex).unwrap().level
+    // 2. Step: Consider all nodes u from high to low level and set d(u) = min{d(u), d(v) + c(v, u)}
+    //          for nodes v with level(v) > level(u) and (v, u) ∈ E
+    let phast_relaxation = Instant::now();
+    let mut vertices_by_level_desc = vertices.clone();
+    vertices_by_level_desc.sort_by_key(|v| v.level);
+    vertices_by_level_desc.reverse();
+
+    assert_eq!(vertices_by_level_desc.first().unwrap().level, 138);
+    assert_eq!(vertices_by_level_desc.last().unwrap().level, 0);
+
+    // edges.sort_by_key(|edge: &Edge| edge.end_vertex);
+    // let predecessor_offset = create_predecessor_offset_array(&edges, num_vertices);
+
+    // Consider all nodes in inverse level order
+    for vertex in &vertices_by_level_desc {
+        // Check incoming edges (u,v) with level(v) > level(u)
+        for incoming_edge_id in predecessor_offset[vertex.id]..predecessor_offset[vertex.id + 1] {
+            let incoming_edge = edges.get(incoming_edge_id).unwrap();
+
+            // We do not want to check the peeks, we want to check the lower nodes and update them
+            if vertices.get(incoming_edge.start_vertex).unwrap().level
+                > vertices.get(incoming_edge.end_vertex).unwrap().level
             {
-                if d[edge.start_vertex] + edge.weight < d[u.id] {
-                    d[u.id] = d[edge.start_vertex] + edge.weight;
-                    predecessors[u.id] = edge.start_vertex;
-                    predecessor_edges[u.id] = edge.id;
+                if distances[vertex.id]
+                    > distances[incoming_edge.start_vertex] + incoming_edge.weight
+                {
+                    distances[vertex.id] =
+                        distances[incoming_edge.start_vertex] + incoming_edge.weight;
+                    predecessors[vertex.id] = incoming_edge.start_vertex;
+                    predecessor_edges[vertex.id] = incoming_edge.id;
+                    // println!(
+                    //     "Relaxed distance for vertex: {:?} and assigned predecessor {:?}",
+                    //     vertex, incoming_edge.start_vertex
+                    // );
                 }
             }
         }
     }
 
+    // println!("Distance from {} to 7610: {:?}", s, distances[7610]);
+
     println!(
-        "Finished phast query step 2 in {:?}",
-        phast_time.elapsed().as_micros()
+        "Executed PHAST relaxation in: {:?}ms",
+        phast_relaxation.elapsed().as_millis()
     );
 
-    (d.clone(), predecessors.clone(), predecessor_edges.clone())
+    (
+        distances.clone(),
+        predecessors.clone(),
+        predecessor_edges.clone(),
+    )
 }
 
 fn find_bounds(vertices: &Vec<Vertex>) -> ((f64, f64), (f64, f64)) {

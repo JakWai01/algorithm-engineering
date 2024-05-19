@@ -165,6 +165,12 @@ impl<'a> Dijkstra<'a> {
                 if ((dist[u] + not_dist[u]) as f64) < d {
                     d = (dist[u] + not_dist[u]) as f64;
                     current_min = u;
+                    // println!(
+                    //     "Current min: {current_min}, {:?} = {:?} + {:?}",
+                    //     (dist[u] + not_dist[u]) as f64,
+                    //     dist[u],
+                    //     not_dist[u]
+                    // );
                 }
 
                 for e in offset_array[u]..offset_array[u + 1] {
@@ -183,6 +189,9 @@ impl<'a> Dijkstra<'a> {
                 }
             }
         }
+        // if current_min == t {
+        //     (f)
+        // }
         (d, current_min)
     }
 
@@ -222,6 +231,15 @@ impl<'a> Dijkstra<'a> {
                             distance: self.df[vertex] + edge.weight,
                             vertex: edge.end_vertex,
                         });
+
+                        if start_node == 7620 {
+                            println!("Vertex: {}", vertex);
+                            println!("Edge: {:?}", edge);
+                            println!(
+                                "Setting {} as the predecessor of {}",
+                                edge.start_vertex, edge.end_vertex
+                            );
+                        }
 
                         self.predecessors_up[edge.end_vertex] = edge.start_vertex;
                         self.predecessor_edges_up[edge.end_vertex] = edge.id;

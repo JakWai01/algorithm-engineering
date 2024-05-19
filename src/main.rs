@@ -150,7 +150,7 @@ fn main() {
     // Stuttgart
     // let s = 377371;
     // let t = 754742;
-    let s = 695445;
+    let s = 18;
     let t = 7620;
 
     // Germany
@@ -158,69 +158,79 @@ fn main() {
     // let t = 16743651;
     let (distance, current_min) = path_finding.bidirectional_ch_query(s, t);
 
-    println!("Distance: {}", distance);
+    if distance == (((usize::MAX / 2) - 1) as f64) {
+        println!("No path between s and t")
+    } else {
+        println!("Distance: {}", distance);
+        println!("Current min: {current_min}");
+    }
 
     let elapsed = now.elapsed();
 
-    let mut upwards_path_node_id = current_min;
-    let mut upwards_path: Vec<usize> = Vec::new();
-    while upwards_path_node_id != s {
-        upwards_path.insert(0, upwards_path_node_id);
-        upwards_path_node_id = path_finding.predecessors_up[upwards_path_node_id];
-    }
-    upwards_path.insert(0, s);
+    // If there is no path, don't try to determine it
+    if current_min != t {
+        let mut upwards_path_node_id = current_min;
+        let mut upwards_path: Vec<usize> = Vec::new();
+        while upwards_path_node_id != s {
+            println!("Updwards path node id {upwards_path_node_id}");
 
-    let mut downwards_path_node_id = current_min;
-    let mut downwards_path: Vec<usize> = Vec::new();
-    while downwards_path_node_id != t {
-        downwards_path.push(downwards_path_node_id);
-        downwards_path_node_id = path_finding.predecessors_down[downwards_path_node_id];
-    }
-    downwards_path.push(t);
-
-    // Stuttgart 436627
-    // Germany 648681
-    // assert_eq!(distance, 436627.0);
-
-    println!(
-        "Finished bi-directional CH query in: {}us",
-        elapsed.as_micros()
-    );
-
-    let mut edge_path: Vec<usize> = Vec::new();
-
-    for vertex in upwards_path {
-        let edge = path_finding.predecessor_edges_up[vertex];
-        if edge == usize::MAX {
-            continue;
+            upwards_path.insert(0, upwards_path_node_id);
+            upwards_path_node_id = path_finding.predecessors_up[upwards_path_node_id];
         }
-        let e = edges.get(edge).unwrap();
-        edge_path.push(e.id);
-    }
+        upwards_path.insert(0, s);
 
-    for vertex in downwards_path {
-        let edge = path_finding.predecessor_edges_down[vertex];
-        if edge == usize::MAX {
-            continue;
+        let mut downwards_path_node_id = current_min;
+        let mut downwards_path: Vec<usize> = Vec::new();
+        while downwards_path_node_id != t {
+            downwards_path.push(downwards_path_node_id);
+            downwards_path_node_id = path_finding.predecessors_down[downwards_path_node_id];
         }
-        let e = edges.get(edge).unwrap();
-        edge_path.push(e.id);
-    }
+        downwards_path.push(t);
 
-    // Unpack shortcuts
-    let mut unpack_stack: Vec<usize> = Vec::new();
-    let mut unpacked_path: Vec<usize> = Vec::new();
+        // Stuttgart 436627
+        // Germany 648681
+        // assert_eq!(distance, 436627.0);
 
-    for edge in edge_path {
-        unpack_stack.push(edge);
-        while !unpack_stack.is_empty() {
-            let edge_id = unpack_stack.pop().unwrap();
-            let edge = edges.get(edge_id).unwrap();
-            if edge.edge_id_a != -1 && edge.edge_id_b != -1 {
-                unpack_stack.push(edge.edge_id_b as usize);
-                unpack_stack.push(edge.edge_id_a as usize);
-            } else {
-                unpacked_path.push(edge.id);
+        println!(
+            "Finished bi-directional CH query in: {}us",
+            elapsed.as_micros()
+        );
+
+        let mut edge_path: Vec<usize> = Vec::new();
+
+        for vertex in upwards_path {
+            let edge = path_finding.predecessor_edges_up[vertex];
+            if edge == usize::MAX {
+                continue;
+            }
+            let e = edges.get(edge).unwrap();
+            edge_path.push(e.id);
+        }
+
+        for vertex in downwards_path {
+            let edge = path_finding.predecessor_edges_down[vertex];
+            if edge == usize::MAX {
+                continue;
+            }
+            let e = edges.get(edge).unwrap();
+            edge_path.push(e.id);
+        }
+
+        // Unpack shortcuts
+        let mut unpack_stack: Vec<usize> = Vec::new();
+        let mut unpacked_path: Vec<usize> = Vec::new();
+
+        for edge in edge_path {
+            unpack_stack.push(edge);
+            while !unpack_stack.is_empty() {
+                let edge_id = unpack_stack.pop().unwrap();
+                let edge = edges.get(edge_id).unwrap();
+                if edge.edge_id_a != -1 && edge.edge_id_b != -1 {
+                    unpack_stack.push(edge.edge_id_b as usize);
+                    unpack_stack.push(edge.edge_id_a as usize);
+                } else {
+                    unpacked_path.push(edge.id);
+                }
             }
         }
     }
@@ -242,7 +252,7 @@ fn main() {
         &offset_array_down_predecessors,
     );
 
-    let s = 695445;
+    let s = 18;
 
     edges.sort_by_key(|edge: &Edge| edge.end_vertex);
     let predecessor_offset = create_predecessor_offset_array(&edges, num_vertices);
@@ -255,6 +265,13 @@ fn main() {
         &edges,
     );
 
+    println!("Distance to 7620: {}", distances[7620]);
+
+    let mut current = 7620;
+    while current != 18 {
+        println!("Current: {current}");
+        current = predecessors[current]
+    }
     // assert!(false);
     // Note: The PHAST part seems to be working!
 
@@ -364,6 +381,8 @@ fn main() {
         for boundary_edge in boundary_edges {
             let start = boundary_edge.end_vertex;
 
+            println!("Start: {}", start);
+
             let (distances, predecessors, predecessor_edges) = phast_query(
                 &mut arc_flags_path_finding,
                 start,
@@ -372,20 +391,31 @@ fn main() {
                 &reverse_edges,
             );
 
+            println!("Distance to 18 after phast: {}", distances[18]);
+
+            let mut current = 18;
+            while current != 7620 {
+                println!("Current: {current}");
+                current = predecessors[current]
+            }
+
             // Construct shortest path tree
             for vertex in &vertices {
                 let mut current_vertex = vertex.id;
 
                 if current_vertex != start {
                     // Handle case where vertex was not reachable from s
-                    if predecessor_edges[current_vertex] == usize::MAX {
+                    // if predecessor_edges[current_vertex] == usize::MAX {
+                    //     continue;
+                    // }
+                    if distances[current_vertex] == usize::MAX {
                         continue;
                     }
 
                     println!("Current vertex: {:?}", current_vertex);
+                    println!("Distance: {}", distances[current_vertex]);
 
                     let mut predecessor_edge_id = predecessor_edges[current_vertex];
-                    println!("Predecessor edge id: {}", predecessor_edge_id);
 
                     let mut predecessor_edge = reverse_edges.get(predecessor_edge_id).unwrap();
 
@@ -394,6 +424,7 @@ fn main() {
                             [cell_to_id(cell, m_rows, n_columns) as usize] = true;
 
                         current_vertex = predecessors[current_vertex];
+                        // println!("New current: {current_vertex}");
                         if current_vertex == start {
                             break;
                         }
@@ -403,6 +434,8 @@ fn main() {
                     }
                 }
             }
+
+            break;
         }
     }
 
@@ -432,8 +465,14 @@ fn phast_query(
         up_graph_ch.elapsed().as_millis()
     );
 
-    // Distance to known peek node from s to t (This is not actually the peek node in this search)
-    // assert_eq!(164584, distances[183053]);
+    if s == 7620 {
+        println!("Distance to 18: {}", distances[18]);
+        let mut current = 18;
+        while current != 7620 {
+            println!("Current: {current}");
+            current = predecessors[current]
+        }
+    }
 
     // 2. Step: Consider all nodes u from high to low level and set d(u) = min{d(u), d(v) + c(v, u)}
     //          for nodes v with level(v) > level(u) and (v, u) ∈ E
@@ -445,11 +484,11 @@ fn phast_query(
     assert_eq!(vertices_by_level_desc.first().unwrap().level, 138);
     assert_eq!(vertices_by_level_desc.last().unwrap().level, 0);
 
-    // edges.sort_by_key(|edge: &Edge| edge.end_vertex);
-    // let predecessor_offset = create_predecessor_offset_array(&edges, num_vertices);
-
     // Consider all nodes in inverse level order
     for vertex in &vertices_by_level_desc {
+        // if distances[vertex.id] == usize::MAX {
+        //     continue;
+        // }
         // Check incoming edges (u,v) with level(v) > level(u)
         for incoming_edge_id in predecessor_offset[vertex.id]..predecessor_offset[vertex.id + 1] {
             let incoming_edge = edges.get(incoming_edge_id).unwrap();
@@ -461,6 +500,16 @@ fn phast_query(
                 if distances[vertex.id]
                     > distances[incoming_edge.start_vertex] + incoming_edge.weight
                 {
+                    if vertex.id == 18 {
+                        println!("Relaxing!!!");
+                        println!("Level 18: {:?}", vertex.level);
+                        println!("Incoming edge {:?}", incoming_edge);
+                        println!(
+                            "start vertex: {:?}",
+                            vertices.get(incoming_edge.start_vertex).unwrap()
+                        );
+                        println!("Level is actually bigger");
+                    }
                     distances[vertex.id] =
                         distances[incoming_edge.start_vertex] + incoming_edge.weight;
                     predecessors[vertex.id] = incoming_edge.start_vertex;
@@ -480,6 +529,8 @@ fn phast_query(
         "Executed PHAST relaxation in: {:?}ms",
         phast_relaxation.elapsed().as_millis()
     );
+
+    println!("Distance to 18: {}", distances[18]);
 
     (
         distances.clone(),

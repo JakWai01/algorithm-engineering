@@ -207,17 +207,6 @@ fn main() {
         edge_path.push(e.id);
     }
 
-    println!("Edge path: {:?}", edge_path);
-
-    let qwe = edges.get(2827630).unwrap();
-    println!("Edge: {:?}", qwe);
-
-    println!(
-        "Start {:?} End {:?}",
-        vertices.get(qwe.start_vertex).unwrap(),
-        vertices.get(qwe.end_vertex).unwrap()
-    );
-
     // Unpack shortcuts
     let mut unpack_stack: Vec<usize> = Vec::new();
     let mut unpacked_path: Vec<usize> = Vec::new();
@@ -235,8 +224,6 @@ fn main() {
             }
         }
     }
-
-    println!("Unpacked path length: {:?}", unpacked_path.len());
 
     // _____  _    _           _____ _______
     // |  __ \| |  | |   /\    / ____|__   __|
@@ -268,33 +255,6 @@ fn main() {
         &edges,
     );
 
-    let mut current = 7610;
-    println!("LEVEL of 7610: {}", vertices.get(current).unwrap().level);
-
-    while predecessors[current] != 695445 {
-        println!(
-            "Predecessor of {}: {}, level of {}: {}",
-            current,
-            predecessors[current],
-            predecessors[current],
-            vertices.get(predecessors[current]).unwrap().level
-        );
-        println!(
-            "Predecessor edge of {}: {}",
-            current, predecessor_edges[current]
-        );
-        current = predecessors[current]
-    }
-
-    println!(
-        "Predecessor of 52908: {}, level: {}",
-        predecessors[52908],
-        vertices.get(predecessors[52908]).unwrap().level
-    );
-    println!("Predecessor edge of 52908: {}", predecessor_edges[52908]);
-
-    println!("Distances {}", distances[7610]);
-
     // assert!(false);
     // Note: The PHAST part seems to be working!
 
@@ -311,7 +271,6 @@ fn main() {
     //                                      __/ |
     //                                     |___/
 
-    println!("ARC FLAGS");
     let m_rows = 8;
     let n_columns = 6;
 
@@ -340,78 +299,16 @@ fn main() {
     // Sort by end_vertex again for the creation of the predecessor array to work
     reverse_edges.sort_by_key(|edge: &Edge| edge.end_vertex);
 
-    let iowe = reverse_edges.get(2827630).unwrap();
-    println!("Edge: {:?}", iowe);
-
-    println!(
-        "Start {:?}, End {:?}",
-        vertices.get(iowe.start_vertex).unwrap(),
-        vertices.get(iowe.end_vertex).unwrap()
-    );
-
-    assert_eq!(7610, reverse_edges.get(2827630).unwrap().start_vertex);
-
     let reverse_predecessor_offset_array =
         create_predecessor_offset_array(&reverse_edges, num_vertices);
 
-    // Hier ist auf jeden Fall der richtige predecessor dabei
-    for pred in reverse_predecessor_offset_array[695491]..reverse_predecessor_offset_array[695492] {
-        println!(
-            "Predecessor of 695491: {:?}",
-            reverse_edges.get(pred).unwrap()
-        );
-    }
-
-    // Bis hier hin ist es richtig
-
-    // Ist die edge in reverse_edges?
-    println!(
-        "DAS IST DIE EDGE IM REVERSE ARRAY: {:?}",
-        reverse_edges.get(2827630).unwrap()
-    );
-    let abc = reverse_edges.get(2827630).unwrap();
-    println!(
-        "DAS SIND DIE LEVEL VON START UND ENDPUKT: {} {}",
-        vertices.get(abc.start_vertex).unwrap().level,
-        vertices.get(abc.end_vertex).unwrap().level
-    );
-
     // Prepare the data again but this time for the reverse query
-    let (mut reverse_edges_up, mut reverse_edges_down): (Vec<Edge>, Vec<Edge>) = reverse_edges
-        .iter()
-        // Flip levels?
-        .partition(|edge| {
-            if edge.id == 2827630 {
-                println!("edge.start_vertex: {}", edge.start_vertex);
-                println!("LEVEL: {}", vertices.get(edge.start_vertex).unwrap().level);
-                println!("edge.end_vertex: {}", edge.end_vertex);
-                println!("LEVEL: {}", vertices.get(edge.end_vertex).unwrap().level);
-            }
+    let (mut reverse_edges_up, mut reverse_edges_down): (Vec<Edge>, Vec<Edge>) =
+        reverse_edges.iter().partition(|edge| {
             vertices.get(edge.start_vertex).unwrap().level
                 < vertices.get(edge.end_vertex).unwrap().level
         });
 
-    for edge in &reverse_edges_down {
-        if edge.id == 2827630 {
-            println!("IM FALSCHEN ARRAY")
-        }
-    }
-
-    println!("reverse_edges_up len: {}", reverse_edges_up.len());
-    for edge in &reverse_edges_up {
-        if edge.id == 2827630 {
-            println!("DAS IST DIE EDGE: {:?}", edge);
-        }
-        if edge.start_vertex == 7610 && edge.end_vertex == 695491 {
-            println!("REVERSE EDGES UP IS CORRECT")
-        }
-
-        if edge.end_vertex == 7610 && edge.start_vertex == 695491 {
-            println!("REVERSE EDGES UP IS WRONG")
-        }
-    }
-
-    // Ich glaube die brauchen wir gar nicht - wir machen ja nur die "upwards" search
     reverse_edges_down.iter_mut().for_each(|edge| {
         std::mem::swap(&mut edge.start_vertex, &mut edge.end_vertex);
     });
@@ -447,11 +344,10 @@ fn main() {
     );
 
     let preproc = Instant::now();
-    // Here the main arc-flags logic starts
+
     for (cell, group) in &vertices_grid.iter().group_by(|v| v.grid_cell) {
         let mut boundary_edges: Vec<&Edge> = Vec::new();
         println!("Looking at cell: {:?}", cell);
-        // println!("Elements in group: {:?}", group.collect::<Vec<_>>().len());
         // Determine all boundary edges in this group
         for vertex in group {
             for edge in predecessor_offset[vertex.id]..predecessor_offset[vertex.id + 1] {
@@ -460,34 +356,13 @@ fn main() {
                     != vertices.get(edge.end_vertex).unwrap().grid_cell
                     && vertices.get(edge.end_vertex).unwrap().grid_cell == cell
                 {
-                    // println!("Boundary Edge for vertex: {:?}, {:?}", vertex, edge);
-                    // println!(
-                    //     "Cell of boundary edge: start {:?} end {:?}",
-                    //     vertices.get(edge.start_vertex).unwrap().grid_cell,
-                    //     vertices.get(edge.end_vertex).unwrap().grid_cell
-                    // );
-                    // println!("{} {}", edge.start_vertex, edge.end_vertex);
-                    // println!("Bounding edge has start_vertex_grid_cell: {:?} and end_vertex_grid_cell: {:?}", vertices.get(edge.start_vertex).unwrap().grid_cell, vertices.get(edge.end_vertex).unwrap().grid_cell);
                     boundary_edges.push(edge);
                 }
             }
         }
 
-        // println!("Boundary edges length: {:?}", boundary_edges.len());
-
         for boundary_edge in boundary_edges {
-            // println!("Current boundary edge: {:?}", boundary_edge);
-            // println!("{} {}", edge.start_vertex, edge.end_vertex);
-            // Flip edges to create the reverse graph
-            // let mut reverse_edges = edges.clone();
-            // reverse_edges
-            //     .iter_mut()
-            //     .for_each(|edge| mem::swap(&mut edge.start_vertex, &mut edge.end_vertex));
-
-            // println!("{} {}", edge.start_vertex, edge.end_vertex);
-            // Run one-to-all query on reverse graph
             let start = boundary_edge.end_vertex;
-            // println!("Start of one-to-all search {:?}", start);
 
             let (distances, predecessors, predecessor_edges) = phast_query(
                 &mut arc_flags_path_finding,
@@ -497,20 +372,8 @@ fn main() {
                 &reverse_edges,
             );
 
-            // println!(
-            //     "Distance after phast-query in arc flags from {}: {}",
-            //     start, distances[695445]
-            // );
-
-            // Hier kommt ein falscher Wert raus, obwohl der Algorithmus funktioniert
-            // Es muss also am input liegen
-            // Wie verhalten sich die levels im korrekten Pfad?
-            // println!("Predecessor of 695445 {}", predecessors[695445]);
-            // assert_eq!(1611, distances[695445]);
-
             // Construct shortest path tree
             for vertex in &vertices {
-                // println!("True vertex.id {}", vertex.id);
                 let mut current_vertex = vertex.id;
 
                 if current_vertex != start {
@@ -526,57 +389,20 @@ fn main() {
 
                     let mut predecessor_edge = reverse_edges.get(predecessor_edge_id).unwrap();
 
-                    // Go back from the current node until we reach the start node inside of the target region
-                    // while predecessor_edge.start_vertex != edge.end_vertex {
-                    //     println!("Current predecessor_edge id: {}", predecessor_edge_id);
-                    //     println!("Current predecessor_edge: {:?}", predecessor_edge);
-                    //     // Mark arc flag
-                    //     arc_flags[predecessor_edge.id]
-                    //         [cell_to_id(cell, m_rows, n_columns) as usize] = true;
-
-                    //     // Prepare data for next iteration
-                    //     current_pred = predecessors[predecessor_edge.start_vertex];
-                    //     predecessor_edge_id = predecessor_edges[current_pred];
-                    //     predecessor_edge = reverse_edges.get(predecessor_edge_id).unwrap();
-                    // }
-
-                    // We want do-while since we also want to set the arc flags a last time when the end_vertex is the start vertex
                     loop {
-                        // println!("Current predecessor_edge id: {}", predecessor_edge_id);
-                        // println!("Current predecessor_edge: {:?}", predecessor_edge);
-                        // Mark arc flag
                         arc_flags[predecessor_edge.id]
                             [cell_to_id(cell, m_rows, n_columns) as usize] = true;
-
-                        // println!("ARC FLAG: {:?}", arc_flags[predecessor_edge_id]);
 
                         current_vertex = predecessors[current_vertex];
                         if current_vertex == start {
                             break;
                         }
 
-                        // Prepare data for next iteration
-                        // current_pred = predecessors[predecessor_edge.start_vertex];
-                        // should be the same as current_pred = predecessor_edge.start_vertex;
-                        // current_vertex = predecessors[vertex.id];
-                        // println!("Updated current predecessor: {:?}", current_vertex);
                         predecessor_edge_id = predecessor_edges[current_vertex];
-                        println!("Updated predecessor edge id {:?}", predecessor_edge_id);
-                        if predecessor_edge_id == 336 {
-                            println!("Edge: {:?}, Shown predecessor: 3221772", predecessor_edge);
-                        }
-                        if predecessor_edge_id == 823276 {
-                            println!("Predecessor_edge: {:?}", predecessor_edge);
-                        }
                         predecessor_edge = reverse_edges.get(predecessor_edge_id).unwrap();
-                        // println!("Updated predecessor edge {:?}", predecessor_edge);
                     }
                 }
-
-                // break;
             }
-
-            // break;
         }
     }
 

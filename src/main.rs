@@ -141,6 +141,7 @@ fn main() {
     edges_up.sort_by_key(|edge| edge.start_vertex);
     edges_down.sort_by_key(|edge| edge.start_vertex);
 
+    let offset_array: Vec<usize> = create_offset_array(&edges, num_vertices);
     let offset_array_up: Vec<usize> = create_offset_array(&edges_up, num_vertices);
     let offset_array_down: Vec<usize> = create_offset_array(&edges_down, num_vertices);
 
@@ -207,8 +208,22 @@ fn main() {
     let mut output = File::create(path).unwrap();
     write!(output, "{}", text).unwrap();
 
-    // let (distance, current_min) = path_finding.bidirectional_ch_query(s, t);
+    // Graph Generation
 
+    let mut path_finding = dijkstra::Dijkstra::new(
+        num_vertices,
+        &offset_array_up,
+        &offset_array_down,
+        &edges_up,
+        &edges_down,
+        &offset_array_up_predecessors,
+        &offset_array_down_predecessors,
+    );
+    let s = source_target_tuples[0].0;
+    let t = source_target_tuples[0].1;
+    let (distance, current_min) = path_finding.bidirectional_ch_query(s, t);
+
+    println!("Distance: {}", distance);
     // if distance == (((usize::MAX / 2) - 1) as f64) {
     //     println!("No path between s and t")
     // } else {
@@ -220,65 +235,59 @@ fn main() {
 
     // If there is no path, don't try to determine it
     // if current_min != t {
-    //     let mut upwards_path_node_id = current_min;
-    //     let mut upwards_path: Vec<usize> = Vec::new();
-    //     while upwards_path_node_id != s {
-    //         upwards_path.insert(0, upwards_path_node_id);
-    //         upwards_path_node_id = path_finding.predecessors_up[upwards_path_node_id];
-    //     }
-    //     upwards_path.insert(0, s);
+    let mut upwards_path_node_id = current_min;
+    let mut upwards_path: Vec<usize> = Vec::new();
+    while upwards_path_node_id != s {
+        upwards_path.insert(0, upwards_path_node_id);
+        upwards_path_node_id = path_finding.predecessors_up[upwards_path_node_id];
+    }
+    upwards_path.insert(0, s);
 
-    //     let mut downwards_path_node_id = current_min;
-    //     let mut downwards_path: Vec<usize> = Vec::new();
-    //     while downwards_path_node_id != t {
-    //         downwards_path.push(downwards_path_node_id);
-    //         downwards_path_node_id = path_finding.predecessors_down[downwards_path_node_id];
-    //     }
-    //     downwards_path.push(t);
+    let mut downwards_path_node_id = current_min;
+    let mut downwards_path: Vec<usize> = Vec::new();
+    while downwards_path_node_id != t {
+        downwards_path.push(downwards_path_node_id);
+        downwards_path_node_id = path_finding.predecessors_down[downwards_path_node_id];
+    }
+    downwards_path.push(t);
 
-    //     println!(
-    //         "Finished bi-directional CH query in: {}us",
-    //         elapsed.as_micros()
-    //     );
+    let mut edge_path: Vec<usize> = Vec::new();
 
-    //     let mut edge_path: Vec<usize> = Vec::new();
+    for vertex in upwards_path {
+        let edge = path_finding.predecessor_edges_up[vertex];
+        if edge == usize::MAX {
+            continue;
+        }
+        let e = edges.get(edge).unwrap();
+        edge_path.push(e.id);
+    }
 
-    //     for vertex in upwards_path {
-    //         let edge = path_finding.predecessor_edges_up[vertex];
-    //         if edge == usize::MAX {
-    //             continue;
-    //         }
-    //         let e = edges.get(edge).unwrap();
-    //         edge_path.push(e.id);
-    //     }
+    for vertex in downwards_path {
+        let edge = path_finding.predecessor_edges_down[vertex];
+        if edge == usize::MAX {
+            continue;
+        }
+        let e = edges.get(edge).unwrap();
+        edge_path.push(e.id);
+    }
 
-    //     for vertex in downwards_path {
-    //         let edge = path_finding.predecessor_edges_down[vertex];
-    //         if edge == usize::MAX {
-    //             continue;
-    //         }
-    //         let e = edges.get(edge).unwrap();
-    //         edge_path.push(e.id);
-    //     }
+    // Unpack shortcuts
+    let mut unpack_stack: Vec<usize> = Vec::new();
+    let mut unpacked_path: Vec<usize> = Vec::new();
 
-    //     // Unpack shortcuts
-    //     let mut unpack_stack: Vec<usize> = Vec::new();
-    //     let mut unpacked_path: Vec<usize> = Vec::new();
-
-    //     for edge in edge_path {
-    //         unpack_stack.push(edge);
-    //         while !unpack_stack.is_empty() {
-    //             let edge_id = unpack_stack.pop().unwrap();
-    //             let edge = edges.get(edge_id).unwrap();
-    //             if edge.edge_id_a != -1 && edge.edge_id_b != -1 {
-    //                 unpack_stack.push(edge.edge_id_b as usize);
-    //                 unpack_stack.push(edge.edge_id_a as usize);
-    //             } else {
-    //                 unpacked_path.push(edge.id);
-    //             }
-    //         }
-    //     }
-    // }
+    for edge in edge_path {
+        unpack_stack.push(edge);
+        while !unpack_stack.is_empty() {
+            let edge_id = unpack_stack.pop().unwrap();
+            let edge = edges.get(edge_id).unwrap();
+            if edge.edge_id_a != -1 && edge.edge_id_b != -1 {
+                unpack_stack.push(edge.edge_id_b as usize);
+                unpack_stack.push(edge.edge_id_a as usize);
+            } else {
+                unpacked_path.push(edge.id);
+            }
+        }
+    }
 
     // _____  _    _           _____ _______
     // |  __ \| |  | |   /\    / ____|__   __|
@@ -323,6 +332,7 @@ fn main() {
 
     let mut output = File::create(path).unwrap();
     write!(output, "{}", text).unwrap();
+
     //                      ______ _
     //     /\              |  ____| |
     //    /  \   _ __ ___  | |__  | | __ _  __ _ ___
@@ -332,153 +342,166 @@ fn main() {
     //                                      __/ |
     //                                     |___/
 
-    // let m_rows = 8;
-    // let n_columns = 6;
+    let m_rows = 8;
+    let n_columns = 6;
 
-    // let (min_bound, max_bound) = find_bounds(&vertices);
+    let (min_bound, max_bound) = find_bounds(&vertices);
 
-    // println!("Min bound: {:?}, max_bound: {:?}", min_bound, max_bound);
+    println!("Min bound: {:?}, max_bound: {:?}", min_bound, max_bound);
 
-    // for vertex in &mut vertices {
-    //     let (x_cell, y_cell) = get_grid_cell(*vertex, min_bound, max_bound, m_rows, n_columns);
-    //     vertex.grid_cell = (x_cell as f64, y_cell as f64);
-    // }
+    for vertex in &mut vertices {
+        let (x_cell, y_cell) = get_grid_cell(*vertex, min_bound, max_bound, m_rows, n_columns);
+        vertex.grid_cell = (x_cell as f64, y_cell as f64);
+    }
 
-    // let mut vertices_grid = vertices.clone();
+    let mut vertices_grid = vertices.clone();
 
-    // // The group_by function groups consecutive elements into groups
-    // vertices_grid.sort_by(|x, y| x.grid_cell.partial_cmp(&y.grid_cell).unwrap());
+    // The group_by function groups consecutive elements into groups
+    vertices_grid.sort_by(|x, y| x.grid_cell.partial_cmp(&y.grid_cell).unwrap());
 
-    // let mut arc_flags: Vec<Vec<bool>> = vec![vec![false; m_rows * n_columns]; edges.len()];
+    let mut arc_flags: Vec<Vec<bool>> = vec![vec![false; m_rows * n_columns]; edges.len()];
 
-    // // Construct reverse graph for reverse dijkstra
-    // let mut reverse_edges = edges.clone();
-    // reverse_edges
-    //     .iter_mut()
-    //     .for_each(|edge| mem::swap(&mut edge.start_vertex, &mut edge.end_vertex));
+    // Construct reverse graph for reverse dijkstra
+    let mut reverse_edges = edges.clone();
+    reverse_edges
+        .iter_mut()
+        .for_each(|edge| mem::swap(&mut edge.start_vertex, &mut edge.end_vertex));
 
-    // // Sort by end_vertex again for the creation of the predecessor array to work
-    // reverse_edges.sort_by_key(|edge: &Edge| edge.end_vertex);
+    // Sort by end_vertex again for the creation of the predecessor array to work
+    reverse_edges.sort_by_key(|edge: &Edge| edge.end_vertex);
 
-    // let reverse_predecessor_offset_array =
-    //     create_predecessor_offset_array(&reverse_edges, num_vertices);
+    let reverse_predecessor_offset_array =
+        create_predecessor_offset_array(&reverse_edges, num_vertices);
 
-    // // Prepare the data again but this time for the reverse query
-    // let (mut reverse_edges_up, mut reverse_edges_down): (Vec<Edge>, Vec<Edge>) =
-    //     reverse_edges.iter().partition(|edge| {
-    //         vertices.get(edge.start_vertex).unwrap().level
-    //             < vertices.get(edge.end_vertex).unwrap().level
-    //     });
+    // Prepare the data again but this time for the reverse query
+    let (mut reverse_edges_up, mut reverse_edges_down): (Vec<Edge>, Vec<Edge>) =
+        reverse_edges.iter().partition(|edge| {
+            vertices.get(edge.start_vertex).unwrap().level
+                < vertices.get(edge.end_vertex).unwrap().level
+        });
 
-    // reverse_edges_down.iter_mut().for_each(|edge| {
-    //     std::mem::swap(&mut edge.start_vertex, &mut edge.end_vertex);
-    // });
+    reverse_edges_down.iter_mut().for_each(|edge| {
+        std::mem::swap(&mut edge.start_vertex, &mut edge.end_vertex);
+    });
 
-    // reverse_edges_up.sort_by_key(|edge| edge.start_vertex);
-    // reverse_edges_down.sort_by_key(|edge| edge.start_vertex);
+    reverse_edges_up.sort_by_key(|edge| edge.start_vertex);
+    reverse_edges_down.sort_by_key(|edge| edge.start_vertex);
 
-    // let reverse_offset_array_up: Vec<usize> = create_offset_array(&reverse_edges_up, num_vertices);
-    // let reverse_offset_array_down: Vec<usize> =
-    //     create_offset_array(&reverse_edges_down, num_vertices);
+    let reverse_offset_array_up: Vec<usize> = create_offset_array(&reverse_edges_up, num_vertices);
+    let reverse_offset_array_down: Vec<usize> =
+        create_offset_array(&reverse_edges_down, num_vertices);
 
-    // // Create offset_array of predecessors as well
-    // let mut reverse_predecessor_upward_edges = reverse_edges_up.clone();
-    // let mut reverse_predecessor_downward_edges = reverse_edges_down.clone();
+    // Create offset_array of predecessors as well
+    let mut reverse_predecessor_upward_edges = reverse_edges_up.clone();
+    let mut reverse_predecessor_downward_edges = reverse_edges_down.clone();
 
-    // reverse_predecessor_upward_edges.sort_by_key(|edge| edge.end_vertex);
-    // reverse_predecessor_downward_edges.sort_by_key(|edge| edge.end_vertex);
+    reverse_predecessor_upward_edges.sort_by_key(|edge| edge.end_vertex);
+    reverse_predecessor_downward_edges.sort_by_key(|edge| edge.end_vertex);
 
-    // let reverse_offset_array_up_predecessors: Vec<usize> =
-    //     create_predecessor_offset_array(&reverse_predecessor_upward_edges, num_vertices);
+    let reverse_offset_array_up_predecessors: Vec<usize> =
+        create_predecessor_offset_array(&reverse_predecessor_upward_edges, num_vertices);
 
-    // let reverse_offset_array_down_predecessors: Vec<usize> =
-    //     create_predecessor_offset_array(&reverse_predecessor_downward_edges, num_vertices);
+    let reverse_offset_array_down_predecessors: Vec<usize> =
+        create_predecessor_offset_array(&reverse_predecessor_downward_edges, num_vertices);
 
-    // let mut arc_flags_path_finding = Dijkstra::new(
-    //     num_vertices,
-    //     &reverse_offset_array_up,
-    //     &reverse_offset_array_down,
-    //     &reverse_edges_up,
-    //     &reverse_edges_down,
-    //     &reverse_offset_array_up_predecessors,
-    //     &reverse_offset_array_down_predecessors,
-    // );
+    let mut arc_flags_path_finding = Dijkstra::new(
+        num_vertices,
+        &reverse_offset_array_up,
+        &reverse_offset_array_down,
+        &reverse_edges_up,
+        &reverse_edges_down,
+        &reverse_offset_array_up_predecessors,
+        &reverse_offset_array_down_predecessors,
+    );
 
-    // let preproc = Instant::now();
+    let preproc = Instant::now();
 
-    // for (cell, group) in &vertices_grid.iter().group_by(|v| v.grid_cell) {
-    //     let mut boundary_edges: Vec<&Edge> = Vec::new();
-    //     println!("Looking at cell: {:?}", cell);
-    //     // Determine all boundary edges in this group
-    // for vertex in group {
-    //     for edge in predecessor_offset[vertex.id]..predecessor_offset[vertex.id + 1] {
-    //         let edge = edges.get(edge).unwrap();
-    //         if vertices.get(edge.start_vertex).unwrap().grid_cell
-    //             != vertices.get(edge.end_vertex).unwrap().grid_cell
-    //             && vertices.get(edge.end_vertex).unwrap().grid_cell == cell
-    //         {
-    //             boundary_edges.push(edge);
-    //         }
-    //     }
-    // }
+    for (cell, group) in &vertices_grid.iter().group_by(|v| v.grid_cell) {
+        let mut boundary_edges: Vec<&Edge> = Vec::new();
+        println!("Looking at cell: {:?}", cell);
+        // Determine all boundary edges in this group
+        for vertex in group {
+            for edge in predecessor_offset[vertex.id]..predecessor_offset[vertex.id + 1] {
+                let edge = edges.get(edge).unwrap();
+                if vertices.get(edge.start_vertex).unwrap().grid_cell
+                    != vertices.get(edge.end_vertex).unwrap().grid_cell
+                    && vertices.get(edge.end_vertex).unwrap().grid_cell == cell
+                {
+                    boundary_edges.push(edge);
+                }
+            }
+        }
 
-    // for boundary_edge in boundary_edges {
-    //     let start = boundary_edge.end_vertex;
+        for boundary_edge in boundary_edges {
+            let start = boundary_edge.end_vertex;
 
-    //     println!("Start: {}", start);
+            println!("Start: {}", start);
 
-    //     let mut arc_flags_path_finding = Dijkstra::new(
-    //         num_vertices,
-    //         &reverse_offset_array_up,
-    //         &reverse_offset_array_down,
-    //         &reverse_edges_up,
-    //         &reverse_edges_down,
-    //         &reverse_offset_array_up_predecessors,
-    //         &reverse_offset_array_down_predecessors,
-    //     );
+            let mut arc_flags_path_finding = Dijkstra::new(
+                num_vertices,
+                &reverse_offset_array_up,
+                &reverse_offset_array_down,
+                &reverse_edges_up,
+                &reverse_edges_down,
+                &reverse_offset_array_up_predecessors,
+                &reverse_offset_array_down_predecessors,
+            );
 
-    // let (distances, predecessors, predecessor_edges) = phast_query(
-    //     &mut arc_flags_path_finding,
-    //     start,
-    //     &vertices,
-    //     &reverse_predecessor_offset_array,
-    //     &reverse_edges,
-    // );
+            let (distances, predecessors, predecessor_edges) = phast_query(
+                &mut arc_flags_path_finding,
+                start,
+                &vertices,
+                &reverse_predecessor_offset_array,
+                &reverse_edges,
+            );
 
-    // // Construct shortest path tree
-    // for vertex in &vertices {
-    //     let mut current_vertex = vertex.id;
+            // Construct shortest path tree
+            for vertex in &vertices {
+                let mut current_vertex = vertex.id;
 
-    //     if current_vertex != start {
-    //         if distances[current_vertex] == ((usize::MAX / 2) - 1) {
-    //             continue;
-    //         }
+                if current_vertex != start {
+                    if distances[current_vertex] == ((usize::MAX / 2) - 1) {
+                        continue;
+                    }
 
-    //         let mut predecessor_edge_id = predecessor_edges[current_vertex];
+                    let mut predecessor_edge_id = predecessor_edges[current_vertex];
 
-    //         let mut predecessor_edge = reverse_edges.get(predecessor_edge_id).unwrap();
+                    let mut predecessor_edge = reverse_edges.get(predecessor_edge_id).unwrap();
 
-    //         loop {
-    //             arc_flags[predecessor_edge.id]
-    //                 [cell_to_id(cell, m_rows, n_columns) as usize] = true;
+                    loop {
+                        arc_flags[predecessor_edge.id]
+                            [cell_to_id(cell, m_rows, n_columns) as usize] = true;
 
-    //             current_vertex = predecessors[current_vertex];
-    //             if current_vertex == start {
-    //                 break;
-    //             }
+                        current_vertex = predecessors[current_vertex];
+                        if current_vertex == start {
+                            break;
+                        }
 
-    //                     predecessor_edge_id = predecessor_edges[current_vertex];
-    //                     predecessor_edge = reverse_edges.get(predecessor_edge_id).unwrap();
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
+                        predecessor_edge_id = predecessor_edges[current_vertex];
+                        predecessor_edge = reverse_edges.get(predecessor_edge_id).unwrap();
+                    }
+                }
+            }
+        }
+    }
 
-    // println!(
-    //     "Arc Flags preproc took: {:?}",
-    //     preproc.elapsed().as_millis()
-    // );
+    println!(
+        "Arc Flags preproc took: {:?}",
+        preproc.elapsed().as_millis()
+    );
+
+    let arc_dist = arc_flags_query(
+        source_target_tuples[0].0,
+        source_target_tuples[0].1,
+        vertices,
+        edges,
+        offset_array,
+        m_rows,
+        n_columns,
+        arc_flags,
+    );
+
+    println!("Arc dist");
 }
 
 fn arc_flags_query(

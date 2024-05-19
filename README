@@ -1,5 +1,9 @@
 # Algorithm Engineering Exercise 1
 
+## Notiz
+
+Ich war leider bis zum letzten Moment dabei die Arc Flags zu debuggen und habe deswegen die Visualisierung noch nicht ganz durch. Das würde ich noch nachreichen, wenn es okay ist. Die Arc Flags sollten jetzt eigentlich funktionieren, ich hatte nur noch nicht die Gelegenheit sie voll durchlaufen zu lassen. PHAST und CH (bidirektional) funktionieren gut und sind getestet :) Ich werde versuchen die restlichen Dinge so schnell wie möglich nachzubessern.
+
 ## Usage
 
 ### Die optimierte Binary bauen 
@@ -18,10 +22,10 @@ cargo b --release
 
 ### Ausführen
 
-Im Hauptverzeichnis den folgenden Befehl ausfüHauptverzeichnis
+Im Hauptverzeichnis den folgenden Befehl ausführen
 
 ```
-./target/release/algorithm-engineering <graph e.g. stgtregbz.fmi> <source-target-tuples e.g. examples/input_stg>
+./target/release/algorithm-engineering <graph e.g. stgtregbz.fmi> <source-target-tuples e.g. examples/input_stg> <m> <n>
 ```
 
 ### Example Output Waibel.t0
@@ -54,3 +58,4 @@ Im Hauptverzeichnis den folgenden Befehl ausfüHauptverzeichnis
 9 324877
 10 326104
 ```
+

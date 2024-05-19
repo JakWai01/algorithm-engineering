@@ -1,4 +1,5 @@
 use std::{
+    collections::BinaryHeap,
     env,
     fs::File,
     io::{self, BufRead},
@@ -9,6 +10,7 @@ use std::{
 extern crate itertools;
 use crate::dijkstra::Dijkstra;
 use itertools::Itertools;
+use pq::PQEntry;
 mod dijkstra;
 mod pq;
 
@@ -148,18 +150,9 @@ fn main() {
     let now = Instant::now();
 
     // Stuttgart
-    // let s = 377371;
-    // let t = 754742;
-    let s = 47;
-    let t = 32694;
+    let s = 377371;
+    let t = 754742;
 
-    // // witzig
-    // let s = 32694;
-    // let t = 7620;
-
-    // Germany
-    // let s = 8371825;
-    // let t = 16743651;
     let (distance, current_min) = path_finding.bidirectional_ch_query(s, t);
 
     if distance == (((usize::MAX / 2) - 1) as f64) {
@@ -169,10 +162,6 @@ fn main() {
         println!("Current min: {current_min}");
     }
 
-    // panic!("");
-
-    // panic!("ASd");
-
     let elapsed = now.elapsed();
 
     // If there is no path, don't try to determine it
@@ -180,8 +169,6 @@ fn main() {
         let mut upwards_path_node_id = current_min;
         let mut upwards_path: Vec<usize> = Vec::new();
         while upwards_path_node_id != s {
-            println!("Updwards path node id {upwards_path_node_id}");
-
             upwards_path.insert(0, upwards_path_node_id);
             upwards_path_node_id = path_finding.predecessors_up[upwards_path_node_id];
         }
@@ -194,10 +181,6 @@ fn main() {
             downwards_path_node_id = path_finding.predecessors_down[downwards_path_node_id];
         }
         downwards_path.push(t);
-
-        // Stuttgart 436627
-        // Germany 648681
-        // assert_eq!(distance, 436627.0);
 
         println!(
             "Finished bi-directional CH query in: {}us",
@@ -272,20 +255,6 @@ fn main() {
         &predecessor_offset,
         &edges,
     );
-
-    println!("Distance to 396696: {}", distances[396696]);
-
-    // let mut current = 396696;
-    // while current != 47 {
-    //     println!("Current: {current}");
-    //     current = predecessors[current]
-    // }
-    // assert!(false);
-    // Note: The PHAST part seems to be working!
-
-    // assert_eq!(164584, distances[183053]);
-    // assert_eq!(435351, distances[754743]);
-    // assert_eq!(435675, distances[754751]);
 
     //                      ______ _
     //     /\              |  ____| |
@@ -391,6 +360,16 @@ fn main() {
 
             println!("Start: {}", start);
 
+            let mut arc_flags_path_finding = Dijkstra::new(
+                num_vertices,
+                &reverse_offset_array_up,
+                &reverse_offset_array_down,
+                &reverse_edges_up,
+                &reverse_edges_down,
+                &reverse_offset_array_up_predecessors,
+                &reverse_offset_array_down_predecessors,
+            );
+
             let (distances, predecessors, predecessor_edges) = phast_query(
                 &mut arc_flags_path_finding,
                 start,
@@ -399,29 +378,14 @@ fn main() {
                 &reverse_edges,
             );
 
-            println!("Distance to 18 after phast: {}", distances[18]);
-
-            let mut current = 18;
-            while current != 7620 {
-                println!("Current: {current}");
-                current = predecessors[current]
-            }
-
             // Construct shortest path tree
             for vertex in &vertices {
                 let mut current_vertex = vertex.id;
 
                 if current_vertex != start {
-                    // Handle case where vertex was not reachable from s
-                    // if predecessor_edges[current_vertex] == usize::MAX {
-                    //     continue;
-                    // }
-                    if distances[current_vertex] == usize::MAX {
+                    if distances[current_vertex] == ((usize::MAX / 2) - 1) {
                         continue;
                     }
-
-                    println!("Current vertex: {:?}", current_vertex);
-                    println!("Distance: {}", distances[current_vertex]);
 
                     let mut predecessor_edge_id = predecessor_edges[current_vertex];
 
@@ -432,24 +396,15 @@ fn main() {
                             [cell_to_id(cell, m_rows, n_columns) as usize] = true;
 
                         current_vertex = predecessors[current_vertex];
-                        // println!("New current: {current_vertex}");
                         if current_vertex == start {
                             break;
                         }
 
-                        if vertex.id == 47 {
-                            println!("Current vertexxx: {current_vertex}");
-                        }
                         predecessor_edge_id = predecessor_edges[current_vertex];
-                        if vertex.id == 47 {
-                            println!("Current pred id: {predecessor_edge_id}");
-                        }
                         predecessor_edge = reverse_edges.get(predecessor_edge_id).unwrap();
                     }
                 }
             }
-
-            break;
         }
     }
 
@@ -457,6 +412,55 @@ fn main() {
         "Arc Flags preproc took: {:?}",
         preproc.elapsed().as_millis()
     );
+}
+
+fn arc_flags_query(
+    start_node: usize,
+    target_node: usize,
+    vertices: Vec<Vertex>,
+    edges: Vec<Edge>,
+    offset_array: Vec<usize>,
+    m_rows: usize,
+    n_columns: usize,
+    arc_flags: Vec<Vec<bool>>,
+) -> usize {
+    let mut dist: Vec<usize> = (0..vertices.len())
+        .map(|_| ((usize::MAX / 2) - 1))
+        .collect();
+    let mut pq: BinaryHeap<PQEntry> = BinaryHeap::new();
+
+    // Determine cell of target
+    let id = cell_to_id(
+        vertices.get(target_node).unwrap().grid_cell,
+        m_rows,
+        n_columns,
+    );
+
+    dist[start_node] = 0;
+    pq.push(PQEntry {
+        distance: 0,
+        vertex: start_node,
+    });
+
+    while let Some(PQEntry { distance, vertex }) = pq.pop() {
+        if vertex == target_node {
+            return distance;
+        };
+
+        for j in offset_array[vertex]..offset_array[vertex + 1] {
+            if arc_flags[j][id as usize] {
+                let edge = edges.get(j).unwrap();
+                if dist[edge.end_vertex] > dist[vertex] + edge.weight {
+                    dist[edge.end_vertex] = dist[vertex] + edge.weight;
+                    pq.push(PQEntry {
+                        distance: dist[vertex] + edge.weight,
+                        vertex: edge.end_vertex,
+                    });
+                }
+            }
+        }
+    }
+    usize::MAX
 }
 
 fn cell_to_id(cell: (f64, f64), m_rows: usize, n_columns: usize) -> f64 {
@@ -479,19 +483,6 @@ fn phast_query(
         up_graph_ch.elapsed().as_millis()
     );
 
-    if s == 47 {
-        // println!("Distance ch weird: {} ", distances[596171]);
-        println!("Distance after ch to 396696: {}", distances[396696])
-    }
-    // if s == 7620 {
-    //     println!("Distance to 47: {}", distances[18]);
-    //     let mut current = 18;
-    //     while current != 7620 {
-    //         println!("Currentdfgdfgdfgaaaaa: {current}");
-    //         current = predecessors[current]
-    //     }
-    // }
-
     // 2. Step: Consider all nodes u from high to low level and set d(u) = min{d(u), d(v) + c(v, u)}
     //          for nodes v with level(v) > level(u) and (v, u) ∈ E
     let phast_relaxation = Instant::now();
@@ -499,75 +490,30 @@ fn phast_query(
     vertices_by_level_desc.sort_by_key(|v| v.level);
     vertices_by_level_desc.reverse();
 
-    assert_eq!(vertices_by_level_desc.first().unwrap().level, 138);
-    assert_eq!(vertices_by_level_desc.last().unwrap().level, 0);
-
     // Consider all nodes in inverse level order
     for vertex in &vertices_by_level_desc {
-        // if distances[vertex.id] == usize::MAX {
-        //     continue;
-        // }
-        // Check incoming edges (u,v) with level(v) > level(u)
-
-        // println!("Node with highest level id: {}", vertex.id);
-
         for incoming_edge_id in predecessor_offset[vertex.id]..predecessor_offset[vertex.id + 1] {
             let incoming_edge = edges.get(incoming_edge_id).unwrap();
 
-            // We do not want to check the peeks, we want to check the lower nodes and update them
             if vertices.get(incoming_edge.start_vertex).unwrap().level
                 > vertices.get(incoming_edge.end_vertex).unwrap().level
             {
-                // println!("Incoming edge: {:?}", incoming_edge);
-                if vertex.id == 396696 {
-                    println!(
-                        "Distance incoming edge start: {}",
-                        distances[incoming_edge.start_vertex]
-                    );
-                }
                 if distances[vertex.id]
                     > distances[incoming_edge.start_vertex] + incoming_edge.weight
                 {
-                    if vertex.id == 396696 {
-                        println!("Level: {:?}", vertex.level);
-                        println!("Incoming edge {:?}", incoming_edge);
-                        println!(
-                            "start vertex: {:?}",
-                            vertices.get(incoming_edge.start_vertex).unwrap()
-                        );
-                        println!("Level is actually bigger");
-
-                        println!("distances[vertex.id] = distances[incoming_edge.start_vertex] + incoming_edge.weight;");
-                        println!(
-                            "{} = {} + {}",
-                            distances[incoming_edge.start_vertex] + incoming_edge.weight,
-                            distances[incoming_edge.start_vertex],
-                            incoming_edge.weight
-                        );
-                    }
                     distances[vertex.id] =
                         distances[incoming_edge.start_vertex] + incoming_edge.weight;
                     predecessors[vertex.id] = incoming_edge.start_vertex;
                     predecessor_edges[vertex.id] = incoming_edge.id;
-                    if vertex.id == 396696 {
-                        println!(
-                            "Relaxed distance for vertex: {:?} and assigned predecessor {:?}",
-                            vertex, incoming_edge.start_vertex
-                        );
-                    }
                 }
             }
         }
     }
 
-    // println!("Distance from {} to 7610: {:?}", s, distances[7610]);
-
     println!(
         "Executed PHAST relaxation in: {:?}ms",
         phast_relaxation.elapsed().as_millis()
     );
-
-    println!("Distance to 396696: {}", distances[396696]);
 
     (
         distances.clone(),

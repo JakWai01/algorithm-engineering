@@ -200,7 +200,9 @@ impl<'a> Dijkstra<'a> {
         start_node: usize,
         vertices: &Vec<Vertex>,
     ) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
-        self.df = (0..self.num_vertices).map(|_| usize::MAX).collect();
+        self.df = (0..self.num_vertices)
+            .map(|_| (usize::MAX / 2) - 1)
+            .collect();
         self.fq.clear();
         self.df[start_node] = 0;
         self.fq.push(PQEntry {
@@ -232,7 +234,7 @@ impl<'a> Dijkstra<'a> {
                             vertex: edge.end_vertex,
                         });
 
-                        if start_node == 7620 {
+                        if start_node == 163217 {
                             println!("Vertex: {}", vertex);
                             println!("Edge: {:?}", edge);
                             println!(

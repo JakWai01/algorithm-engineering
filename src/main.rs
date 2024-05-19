@@ -150,8 +150,12 @@ fn main() {
     // Stuttgart
     // let s = 377371;
     // let t = 754742;
-    let s = 18;
-    let t = 7620;
+    let s = 47;
+    let t = 32694;
+
+    // // witzig
+    // let s = 32694;
+    // let t = 7620;
 
     // Germany
     // let s = 8371825;
@@ -164,6 +168,10 @@ fn main() {
         println!("Distance: {}", distance);
         println!("Current min: {current_min}");
     }
+
+    // panic!("");
+
+    // panic!("ASd");
 
     let elapsed = now.elapsed();
 
@@ -252,7 +260,7 @@ fn main() {
         &offset_array_down_predecessors,
     );
 
-    let s = 18;
+    let s = 47;
 
     edges.sort_by_key(|edge: &Edge| edge.end_vertex);
     let predecessor_offset = create_predecessor_offset_array(&edges, num_vertices);
@@ -265,13 +273,13 @@ fn main() {
         &edges,
     );
 
-    println!("Distance to 7620: {}", distances[7620]);
+    println!("Distance to 396696: {}", distances[396696]);
 
-    let mut current = 7620;
-    while current != 18 {
-        println!("Current: {current}");
-        current = predecessors[current]
-    }
+    // let mut current = 396696;
+    // while current != 47 {
+    //     println!("Current: {current}");
+    //     current = predecessors[current]
+    // }
     // assert!(false);
     // Note: The PHAST part seems to be working!
 
@@ -429,7 +437,13 @@ fn main() {
                             break;
                         }
 
+                        if vertex.id == 47 {
+                            println!("Current vertexxx: {current_vertex}");
+                        }
                         predecessor_edge_id = predecessor_edges[current_vertex];
+                        if vertex.id == 47 {
+                            println!("Current pred id: {predecessor_edge_id}");
+                        }
                         predecessor_edge = reverse_edges.get(predecessor_edge_id).unwrap();
                     }
                 }
@@ -465,14 +479,18 @@ fn phast_query(
         up_graph_ch.elapsed().as_millis()
     );
 
-    if s == 7620 {
-        println!("Distance to 18: {}", distances[18]);
-        let mut current = 18;
-        while current != 7620 {
-            println!("Current: {current}");
-            current = predecessors[current]
-        }
+    if s == 47 {
+        // println!("Distance ch weird: {} ", distances[596171]);
+        println!("Distance after ch to 396696: {}", distances[396696])
     }
+    // if s == 7620 {
+    //     println!("Distance to 47: {}", distances[18]);
+    //     let mut current = 18;
+    //     while current != 7620 {
+    //         println!("Currentdfgdfgdfgaaaaa: {current}");
+    //         current = predecessors[current]
+    //     }
+    // }
 
     // 2. Step: Consider all nodes u from high to low level and set d(u) = min{d(u), d(v) + c(v, u)}
     //          for nodes v with level(v) > level(u) and (v, u) ∈ E
@@ -490,6 +508,9 @@ fn phast_query(
         //     continue;
         // }
         // Check incoming edges (u,v) with level(v) > level(u)
+
+        // println!("Node with highest level id: {}", vertex.id);
+
         for incoming_edge_id in predecessor_offset[vertex.id]..predecessor_offset[vertex.id + 1] {
             let incoming_edge = edges.get(incoming_edge_id).unwrap();
 
@@ -497,27 +518,43 @@ fn phast_query(
             if vertices.get(incoming_edge.start_vertex).unwrap().level
                 > vertices.get(incoming_edge.end_vertex).unwrap().level
             {
+                // println!("Incoming edge: {:?}", incoming_edge);
+                if vertex.id == 396696 {
+                    println!(
+                        "Distance incoming edge start: {}",
+                        distances[incoming_edge.start_vertex]
+                    );
+                }
                 if distances[vertex.id]
                     > distances[incoming_edge.start_vertex] + incoming_edge.weight
                 {
-                    if vertex.id == 18 {
-                        println!("Relaxing!!!");
-                        println!("Level 18: {:?}", vertex.level);
+                    if vertex.id == 396696 {
+                        println!("Level: {:?}", vertex.level);
                         println!("Incoming edge {:?}", incoming_edge);
                         println!(
                             "start vertex: {:?}",
                             vertices.get(incoming_edge.start_vertex).unwrap()
                         );
                         println!("Level is actually bigger");
+
+                        println!("distances[vertex.id] = distances[incoming_edge.start_vertex] + incoming_edge.weight;");
+                        println!(
+                            "{} = {} + {}",
+                            distances[incoming_edge.start_vertex] + incoming_edge.weight,
+                            distances[incoming_edge.start_vertex],
+                            incoming_edge.weight
+                        );
                     }
                     distances[vertex.id] =
                         distances[incoming_edge.start_vertex] + incoming_edge.weight;
                     predecessors[vertex.id] = incoming_edge.start_vertex;
                     predecessor_edges[vertex.id] = incoming_edge.id;
-                    // println!(
-                    //     "Relaxed distance for vertex: {:?} and assigned predecessor {:?}",
-                    //     vertex, incoming_edge.start_vertex
-                    // );
+                    if vertex.id == 396696 {
+                        println!(
+                            "Relaxed distance for vertex: {:?} and assigned predecessor {:?}",
+                            vertex, incoming_edge.start_vertex
+                        );
+                    }
                 }
             }
         }
@@ -530,7 +567,7 @@ fn phast_query(
         phast_relaxation.elapsed().as_millis()
     );
 
-    println!("Distance to 18: {}", distances[18]);
+    println!("Distance to 396696: {}", distances[396696]);
 
     (
         distances.clone(),

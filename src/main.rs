@@ -151,14 +151,14 @@ fn main() {
     // let s = 377371;
     // let t = 754742;
     let s = 695445;
-    let t = 7610;
+    let t = 7620;
 
     // Germany
     // let s = 8371825;
     // let t = 16743651;
     let (distance, current_min) = path_finding.bidirectional_ch_query(s, t);
 
-    // println!("Distance: {}", distance);
+    println!("Distance: {}", distance);
 
     let elapsed = now.elapsed();
 
@@ -446,6 +446,7 @@ fn main() {
         &reverse_offset_array_down_predecessors,
     );
 
+    let preproc = Instant::now();
     // Here the main arc-flags logic starts
     for (cell, group) in &vertices_grid.iter().group_by(|v| v.grid_cell) {
         let mut boundary_edges: Vec<&Edge> = Vec::new();
@@ -466,15 +467,16 @@ fn main() {
                     //     vertices.get(edge.end_vertex).unwrap().grid_cell
                     // );
                     // println!("{} {}", edge.start_vertex, edge.end_vertex);
+                    // println!("Bounding edge has start_vertex_grid_cell: {:?} and end_vertex_grid_cell: {:?}", vertices.get(edge.start_vertex).unwrap().grid_cell, vertices.get(edge.end_vertex).unwrap().grid_cell);
                     boundary_edges.push(edge);
                 }
             }
         }
 
-        println!("Boundary edges length: {:?}", boundary_edges.len());
+        // println!("Boundary edges length: {:?}", boundary_edges.len());
 
         for boundary_edge in boundary_edges {
-            println!("Current boundary edge: {:?}", boundary_edge);
+            // println!("Current boundary edge: {:?}", boundary_edge);
             // println!("{} {}", edge.start_vertex, edge.end_vertex);
             // Flip edges to create the reverse graph
             // let mut reverse_edges = edges.clone();
@@ -485,7 +487,7 @@ fn main() {
             // println!("{} {}", edge.start_vertex, edge.end_vertex);
             // Run one-to-all query on reverse graph
             let start = boundary_edge.end_vertex;
-            println!("Start of one-to-all search {:?}", start);
+            // println!("Start of one-to-all search {:?}", start);
 
             let (distances, predecessors, predecessor_edges) = phast_query(
                 &mut arc_flags_path_finding,
@@ -503,19 +505,19 @@ fn main() {
             // Hier kommt ein falscher Wert raus, obwohl der Algorithmus funktioniert
             // Es muss also am input liegen
             // Wie verhalten sich die levels im korrekten Pfad?
-            println!("Predecessor of 695445 {}", predecessors[695445]);
-            assert_eq!(53612, distances[695445]);
+            // println!("Predecessor of 695445 {}", predecessors[695445]);
+            // assert_eq!(1611, distances[695445]);
 
             // Construct shortest path tree
             for vertex in &vertices {
-                println!("True vertex.id {}", vertex.id);
+                // println!("True vertex.id {}", vertex.id);
                 let mut current_vertex = vertex.id;
 
                 if current_vertex != start {
                     // Handle case where vertex was not reachable from s
-                    // if predecessor_edges[vertex.id] == usize::MAX {
-                    //     continue;
-                    // }
+                    if predecessor_edges[current_vertex] == usize::MAX {
+                        continue;
+                    }
 
                     println!("Current vertex: {:?}", current_vertex);
 
@@ -540,13 +542,15 @@ fn main() {
 
                     // We want do-while since we also want to set the arc flags a last time when the end_vertex is the start vertex
                     loop {
-                        println!("Current predecessor_edge id: {}", predecessor_edge_id);
-                        println!("Current predecessor_edge: {:?}", predecessor_edge);
+                        // println!("Current predecessor_edge id: {}", predecessor_edge_id);
+                        // println!("Current predecessor_edge: {:?}", predecessor_edge);
                         // Mark arc flag
                         arc_flags[predecessor_edge.id]
                             [cell_to_id(cell, m_rows, n_columns) as usize] = true;
 
-                        current_vertex = predecessors[vertex.id];
+                        // println!("ARC FLAG: {:?}", arc_flags[predecessor_edge_id]);
+
+                        current_vertex = predecessors[current_vertex];
                         if current_vertex == start {
                             break;
                         }
@@ -555,18 +559,31 @@ fn main() {
                         // current_pred = predecessors[predecessor_edge.start_vertex];
                         // should be the same as current_pred = predecessor_edge.start_vertex;
                         // current_vertex = predecessors[vertex.id];
-                        println!("Updated current predecessor: {:?}", current_vertex);
+                        // println!("Updated current predecessor: {:?}", current_vertex);
                         predecessor_edge_id = predecessor_edges[current_vertex];
                         println!("Updated predecessor edge id {:?}", predecessor_edge_id);
+                        if predecessor_edge_id == 336 {
+                            println!("Edge: {:?}, Shown predecessor: 3221772", predecessor_edge);
+                        }
+                        if predecessor_edge_id == 823276 {
+                            println!("Predecessor_edge: {:?}", predecessor_edge);
+                        }
                         predecessor_edge = reverse_edges.get(predecessor_edge_id).unwrap();
-                        println!("Updated predecessor edge {:?}", predecessor_edge);
+                        // println!("Updated predecessor edge {:?}", predecessor_edge);
                     }
                 }
+
+                // break;
             }
 
-            break;
+            // break;
         }
     }
+
+    println!(
+        "Arc Flags preproc took: {:?}",
+        preproc.elapsed().as_millis()
+    );
 }
 
 fn cell_to_id(cell: (f64, f64), m_rows: usize, n_columns: usize) -> f64 {

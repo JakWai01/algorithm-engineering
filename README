@@ -24,43 +24,33 @@ Im Hauptverzeichnis den folgenden Befehl ausfüHauptverzeichnis
 ./target/release/algorithm-engineering <graph e.g. stgtregbz.fmi> <source-target-tuples e.g. examples/input_stg>
 ```
 
-## Note 
-
-- Understand Contraction Hierarchies better. Will we automatically take the shortcut in favor of the normal edge although the path has the same weight in total?
-- Von unendlich auf was kleineres -> Knoten in visited array und counter eins hoch. Was ist der Counter vom Visited array 
-- Eine iteration überall eingehenden Kanten für stall on demand
-- Eingehenden Kanten mit Node speichern (separates Offset array)
-- PHAST = Dijkstra + 1 mal drüber iterieren und relaxieren
-- Abbruchkriterium wenn die Distanz größer wird?
-- Cache-effizient mit sortierung nach Level
-- Up-search s: Stall on demand, von T genauso 
-
-
-## Optimierungen
-
-- Abwechseld von Start und Ziel suchen:
-    - Wenn eine Node das erste Mal von beiden Seiten aus gesettled wurde, dann wissen wir, dass wir aufhören können und welches das minimale Element aus beiden ist
-    - Dafür müssen sich beide Searches eine PQ teilen und ihrer Schritte abwechselnd durchführen
-
-
-
-// TODO: Wir können die downward_neighbours aus dem offset_array entfernen
-// TODO: Reorder nodes based on level in order to get the best performance
-
-Desired output and path: 
+### Example Output Waibel.t0
 
 ```
-Reading graph from file: /home/jakob/Documents/master/algorithm-engineering/exercises/02/stgtregbz_ch.fmi
-Number of vertices: 1132113
-Number of edges: 4148265
-First edge Edge { id: 0, start_vertex: 0, end_vertex: 1104356, weight: 253, typ: 0, max_speed: -1, edge_id_a: 1, edge_id_b: 4067034 }
-min: 436627 - in time: 68
-Upwards path: [377371, 377370, 357425, 357426, 119334, 119339, 173169, 119364, 1104076, 415851, 10557, 10938, 621003, 183053]
-Downwards path: [183053, 872669, 16825, 407460, 6193, 6215, 64916, 71162, 92904, 306882, 754755, 754745, 754736, 911476, 754741, 754742]
-Final path: [377371, 377370, 357425, 357426, 119334, 119339, 173169, 119364, 1104076 -- 415851, 10557, 10938, 621003, 183053, 872669 -- 16825, 407460, 6193, 6215, 64916, 71162, 92904, 306882, 754755, 754745, 754736, 911476, 754741, 754742]
+377371 754742 436627 802us
+377371 754743 435351 777us
+377371 754744 437063 907us
+377371 754745 435471 869us
+377371 754746 438107 867us
+377371 754747 438051 822us
+377371 754748 436052 842us
+377371 754749 438168 868us
+377371 754750 437887 849us
+377371 754751 435675 839us
 ```
 
-## TODO
+### Example Output Waibel.t1
 
-- Cleanup
-- Implement dijkstra value reset
+```
+0 307636
+1 306520
+2 310111
+3 311382
+4 312548
+5 320697
+6 319141
+7 322498
+8 323921
+9 324877
+10 326104
+```

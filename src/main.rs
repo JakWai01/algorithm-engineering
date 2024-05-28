@@ -8,109 +8,31 @@ use std::{
     time::Instant,
 };
 extern crate itertools;
-use crate::dijkstra::Dijkstra;
+use crate::{
+    dijkstra::Dijkstra,
+    objects::Edge,
+    utils::{
+        cell_to_id, create_offset_array, create_predecessor_offset_array, find_bounds,
+        get_grid_cell, read_fmi, read_lines,
+    },
+};
 use itertools::Itertools;
+use objects::Vertex;
 use pq::PQEntry;
 mod dijkstra;
 mod pq;
 use io::{Error, Write};
+mod objects;
 mod utils;
-
-#[derive(Debug, Copy, Clone)]
-struct Vertex {
-    id: usize,
-    osm_id: usize,
-    lon: f64,
-    lat: f64,
-    height: usize,
-    level: usize,
-    grid_cell: (f64, f64),
-}
-
-#[derive(Debug, Copy, Clone)]
-struct Edge {
-    id: usize,
-    start_vertex: usize,
-    end_vertex: usize,
-    weight: usize,
-    typ: usize,
-    max_speed: i64,
-    edge_id_a: i64,
-    edge_id_b: i64,
-}
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     let file_path: &String = &args[1];
     let dijkstra_pairs_file_path: &String = &args[2];
 
-    println!("Reading graph from file: {}", file_path);
+    let (mut vertices, mut edges) = read_fmi(file_path);
 
-    let mut lines = read_lines(file_path).unwrap();
-    for _ in 0..10 {
-        lines.next();
-    }
-
-    let num_vertices: usize = lines.next().unwrap().unwrap().parse().unwrap();
-    let num_edges: usize = lines.next().unwrap().unwrap().parse().unwrap();
-
-    println!("Number of vertices: {}", num_vertices);
-    println!("Number of edges: {}", num_edges);
-
-    let mut vertices = Vec::new();
-    let mut edges: Vec<Edge> = Vec::new();
-
-    for _ in 0..num_vertices {
-        if let Some(line) = lines.next() {
-            let l = line.unwrap();
-            let mut iter = l.split_whitespace();
-
-            let id = iter.next().unwrap().parse().unwrap();
-            let osm_id = iter.next().unwrap().parse().unwrap();
-            let lon = iter.next().unwrap().parse().unwrap();
-            let lat = iter.next().unwrap().parse().unwrap();
-            let height = iter.next().unwrap().parse().unwrap();
-            let level = iter.next().unwrap().parse().unwrap();
-
-            let vertex = Vertex {
-                id,
-                osm_id,
-                lon,
-                lat,
-                height,
-                level,
-                grid_cell: (f64::INFINITY, f64::INFINITY),
-            };
-            vertices.push(vertex);
-        }
-    }
-
-    for id in 0..num_edges {
-        if let Some(line) = lines.next() {
-            let l = line.unwrap();
-            let mut iter = l.split_whitespace();
-
-            let start_vertex = iter.next().unwrap().parse().unwrap();
-            let end_vertex = iter.next().unwrap().parse().unwrap();
-            let weight = iter.next().unwrap().parse().unwrap();
-            let typ = iter.next().unwrap().parse().unwrap();
-            let max_speed = iter.next().unwrap().parse().unwrap();
-            let edge_id_a = iter.next().unwrap().parse().unwrap();
-            let edge_id_b = iter.next().unwrap().parse().unwrap();
-
-            let edge = Edge {
-                id,
-                start_vertex,
-                end_vertex,
-                weight,
-                typ,
-                max_speed,
-                edge_id_a,
-                edge_id_b,
-            };
-            edges.push(edge);
-        }
-    }
+    let num_vertices = vertices.len();
 
     // Read dijkstra source-target pairs
     println!(
@@ -209,15 +131,9 @@ fn main() {
     );
     let s = source_target_tuples[0].0;
     let t = source_target_tuples[0].1;
-    let (distance, current_min) = path_finding.bidirectional_ch_query(s, t);
+    let (distance, _) = path_finding.bidirectional_ch_query(s, t);
 
     println!("Distance: {}", distance);
-    // if distance == (((usize::MAX / 2) - 1) as f64) {
-    //     println!("No path between s and t")
-    // } else {
-    //     println!("Distance: {}", distance);
-    //     println!("Current min: {current_min}");
-    // }
 
     // _____  _    _           _____ _______
     // |  __ \| |  | |   /\    / ____|__   __|
@@ -246,7 +162,7 @@ fn main() {
     vertices_by_level_desc.sort_by_key(|v| v.level);
     vertices_by_level_desc.reverse();
 
-    let (distances, predecessors, predecessor_edges) = phast_query(
+    let (distances, _, _) = phast_query(
         &mut phast_path_finding,
         s,
         &vertices,
@@ -255,13 +171,11 @@ fn main() {
         &edges,
     );
 
-    println!("asd {:?}", vertices.get(0).unwrap());
+    assert_eq!(436627, distances[754742]);
 
     for i in 0..num_vertices {
         text.push_str(format!("{} {}\n", i, distances[i]).as_str());
-        // println!(" {} {}", i.0, i.1, distance, elapsed_time.as_micros());
     }
-    // for (i, distance) in distances.iter().enumerate() {}
 
     let path = "Waibel.t1";
 
@@ -441,7 +355,7 @@ fn main() {
         arc_flags,
     );
 
-    println!("Arc dist");
+    println!("Arc dist {}", arc_dist);
 }
 
 fn arc_flags_query(
@@ -493,10 +407,6 @@ fn arc_flags_query(
     usize::MAX
 }
 
-fn cell_to_id(cell: (f64, f64), m_rows: usize, n_columns: usize) -> f64 {
-    return (cell.0 * n_columns as f64) + cell.1;
-}
-
 fn phast_query(
     phast_path_finding: &mut Dijkstra,
     s: usize,
@@ -509,6 +419,7 @@ fn phast_query(
     let up_graph_ch = Instant::now();
     let (mut distances, mut predecessors, mut predecessor_edges) =
         phast_path_finding.ch_query(s, &vertices);
+
     println!(
         "Executed PHAST up-graph search in: {:?}ms",
         up_graph_ch.elapsed().as_millis()
@@ -516,27 +427,19 @@ fn phast_query(
 
     // 2. Step: Consider all nodes u from high to low level and set d(u) = min{d(u), d(v) + c(v, u)}
     //          for nodes v with level(v) > level(u) and (v, u) ∈ E
-
-    let phast_relaxation = Instant::now();
-
-    println!("Sorting took: {:?}", phast_relaxation.elapsed());
-
     let phast_relaxation = Instant::now();
     // Consider all nodes in inverse level order
     for vertex in vertices_by_level_desc {
         for incoming_edge_id in predecessor_offset[vertex.id]..predecessor_offset[vertex.id + 1] {
-            let incoming_edge = edges.get(incoming_edge_id).unwrap();
-
-            if vertices.get(incoming_edge.start_vertex).unwrap().level
-                > vertices.get(incoming_edge.end_vertex).unwrap().level
-            {
+            let incoming_edge = edges[incoming_edge_id];
+            if vertices[incoming_edge.start_vertex].level > vertex.level {
                 if distances[vertex.id]
-                    > distances[incoming_edge.start_vertex] + incoming_edge.weight
+                    >= distances[incoming_edge.start_vertex] + incoming_edge.weight
                 {
                     distances[vertex.id] =
                         distances[incoming_edge.start_vertex] + incoming_edge.weight;
                     predecessors[vertex.id] = incoming_edge.start_vertex;
-                    predecessor_edges[vertex.id] = incoming_edge.id;
+                    predecessor_edges[vertex.id] = incoming_edge_id;
                 }
             }
         }
@@ -552,79 +455,4 @@ fn phast_query(
         predecessors.clone(),
         predecessor_edges.clone(),
     )
-}
-
-fn find_bounds(vertices: &Vec<Vertex>) -> ((f64, f64), (f64, f64)) {
-    let min_x = vertices.iter().map(|c| c.lon).fold(f64::INFINITY, f64::min);
-    let max_x = vertices
-        .iter()
-        .map(|c| c.lon)
-        .fold(f64::NEG_INFINITY, f64::max);
-    let min_y = vertices.iter().map(|c| c.lat).fold(f64::INFINITY, f64::min);
-    let max_y = vertices
-        .iter()
-        .map(|c| c.lat)
-        .fold(f64::NEG_INFINITY, f64::max);
-
-    ((min_x, min_y), (max_x, max_y))
-}
-
-fn get_grid_cell(
-    vertex: Vertex,
-    min: (f64, f64),
-    max: (f64, f64),
-    m: usize,
-    n: usize,
-) -> (usize, usize) {
-    let x_ratio = (vertex.lon - min.0) / (max.0 - min.0);
-    let y_ratio = (vertex.lat - min.1) / (max.1 - min.1);
-
-    let x_index = (x_ratio * (m as f64)).floor() as usize;
-    let y_index = (y_ratio * (n as f64)).floor() as usize;
-
-    (x_index.min(m - 1), y_index.min(n - 1)) // Ensure indices are within bounds
-}
-
-fn create_predecessor_offset_array(edges: &Vec<Edge>, num_vertices: usize) -> Vec<usize> {
-    let mut offset_array: Vec<usize> = vec![edges.len(); num_vertices + 1];
-
-    let mut previous_vertex_id = 0;
-    offset_array[0] = 0;
-
-    for (edge_index, edge) in edges.iter().enumerate() {
-        if edge.end_vertex != previous_vertex_id {
-            for j in previous_vertex_id + 1..=edge.end_vertex {
-                offset_array[j] = edge_index;
-            }
-            previous_vertex_id = edge.end_vertex;
-        }
-    }
-    offset_array
-}
-
-fn create_offset_array(edges: &Vec<Edge>, num_vertices: usize) -> Vec<usize> {
-    let mut offset_array: Vec<usize> = vec![edges.len(); num_vertices + 1];
-
-    let mut previous_vertex_id = 0;
-    offset_array[0] = 0;
-
-    for (edge_index, edge) in edges.iter().enumerate() {
-        if edge.start_vertex != previous_vertex_id {
-            for j in previous_vertex_id + 1..=edge.start_vertex {
-                offset_array[j] = edge_index;
-            }
-            previous_vertex_id = edge.start_vertex;
-        }
-    }
-    offset_array
-}
-
-// The output is wrapped in a Result to allow matching on errors.
-// Returns an Iterator to the Reader of the lines of the file.
-fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-where
-    P: AsRef<Path>,
-{
-    let file = File::open(filename)?;
-    Ok(io::BufReader::new(file).lines())
 }

@@ -71,4 +71,6 @@ Im Hauptverzeichnis den folgenden Befehl ausführen
 - Nur 2 Zellen testen
 - Der Umgekehrte Pfad geht ja nur bis zum Boundary Edge, die Suche zum Boundary ist dann vorwärts
 
+0. Don't use Dijkstra Objects for everything. Remove overhead as much as possible -> Decompose
 1. Speedup Phast
+2. Don't sort

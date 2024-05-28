@@ -59,3 +59,16 @@ Im Hauptverzeichnis den folgenden Befehl ausführen
 10 326104
 ```
 
+## Notes 
+
+- Phast time 66ms
+- Reverse edges etc könnten eigentlich nur referenzen auf den Main array speichern
+- Für ArcFlags Rust bitvec
+- Auspacken sparen
+- Der Dijkstra darf auch über die Shortcuts laufen, wir bekommen korrekte Distanzen
+- Wir brauchen den Pfad nicht!
+- 1x1 Box sollte sich verhalten wie Dijkstra
+- Nur 2 Zellen testen
+- Der Umgekehrte Pfad geht ja nur bis zum Boundary Edge, die Suche zum Boundary ist dann vorwärts
+
+1. Speedup Phast

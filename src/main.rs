@@ -14,6 +14,7 @@ use pq::PQEntry;
 mod dijkstra;
 mod pq;
 use io::{Error, Write};
+mod utils;
 
 #[derive(Debug, Copy, Clone)]
 struct Vertex {
@@ -158,19 +159,6 @@ fn main() {
     let offset_array_down_predecessors: Vec<usize> =
         create_predecessor_offset_array(&predecessor_downward_edges, num_vertices);
 
-    // Run bi-directional dijkstra
-    // let mut path_finding = dijkstra::Dijkstra::new(
-    //     num_vertices,
-    //     &offset_array_up,
-    //     &offset_array_down,
-    //     &edges_up,
-    //     &edges_down,
-    //     &offset_array_up_predecessors,
-    //     &offset_array_down_predecessors,
-    // );
-
-    // let now = Instant::now();
-
     // Stuttgart
     // let s = 377371;
     // let t = 754742;
@@ -231,64 +219,6 @@ fn main() {
     //     println!("Current min: {current_min}");
     // }
 
-    // let elapsed = now.elapsed();
-
-    // If there is no path, don't try to determine it
-    // if current_min != t {
-    let mut upwards_path_node_id = current_min;
-    let mut upwards_path: Vec<usize> = Vec::new();
-    while upwards_path_node_id != s {
-        upwards_path.insert(0, upwards_path_node_id);
-        upwards_path_node_id = path_finding.predecessors_up[upwards_path_node_id];
-    }
-    upwards_path.insert(0, s);
-
-    let mut downwards_path_node_id = current_min;
-    let mut downwards_path: Vec<usize> = Vec::new();
-    while downwards_path_node_id != t {
-        downwards_path.push(downwards_path_node_id);
-        downwards_path_node_id = path_finding.predecessors_down[downwards_path_node_id];
-    }
-    downwards_path.push(t);
-
-    let mut edge_path: Vec<usize> = Vec::new();
-
-    for vertex in upwards_path {
-        let edge = path_finding.predecessor_edges_up[vertex];
-        if edge == usize::MAX {
-            continue;
-        }
-        let e = edges.get(edge).unwrap();
-        edge_path.push(e.id);
-    }
-
-    for vertex in downwards_path {
-        let edge = path_finding.predecessor_edges_down[vertex];
-        if edge == usize::MAX {
-            continue;
-        }
-        let e = edges.get(edge).unwrap();
-        edge_path.push(e.id);
-    }
-
-    // Unpack shortcuts
-    let mut unpack_stack: Vec<usize> = Vec::new();
-    let mut unpacked_path: Vec<usize> = Vec::new();
-
-    for edge in edge_path {
-        unpack_stack.push(edge);
-        while !unpack_stack.is_empty() {
-            let edge_id = unpack_stack.pop().unwrap();
-            let edge = edges.get(edge_id).unwrap();
-            if edge.edge_id_a != -1 && edge.edge_id_b != -1 {
-                unpack_stack.push(edge.edge_id_b as usize);
-                unpack_stack.push(edge.edge_id_a as usize);
-            } else {
-                unpacked_path.push(edge.id);
-            }
-        }
-    }
-
     // _____  _    _           _____ _______
     // |  __ \| |  | |   /\    / ____|__   __|
     // | |__) | |__| |  /  \  | (___    | |
@@ -342,8 +272,8 @@ fn main() {
     //                                      __/ |
     //                                     |___/
 
-    let m_rows = 8;
-    let n_columns = 6;
+    let m_rows = 1;
+    let n_columns = 1;
 
     let (min_bound, max_bound) = find_bounds(&vertices);
 
@@ -575,11 +505,14 @@ fn phast_query(
 
     // 2. Step: Consider all nodes u from high to low level and set d(u) = min{d(u), d(v) + c(v, u)}
     //          for nodes v with level(v) > level(u) and (v, u) ∈ E
+
     let phast_relaxation = Instant::now();
     let mut vertices_by_level_desc = vertices.clone();
     vertices_by_level_desc.sort_by_key(|v| v.level);
     vertices_by_level_desc.reverse();
+    println!("Sorting took: {:?}", phast_relaxation.elapsed());
 
+    let phast_relaxation = Instant::now();
     // Consider all nodes in inverse level order
     for vertex in &vertices_by_level_desc {
         for incoming_edge_id in predecessor_offset[vertex.id]..predecessor_offset[vertex.id + 1] {

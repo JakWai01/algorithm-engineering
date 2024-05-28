@@ -242,10 +242,15 @@ fn main() {
     edges.sort_by_key(|edge: &Edge| edge.end_vertex);
     let predecessor_offset = create_predecessor_offset_array(&edges, num_vertices);
 
+    let mut vertices_by_level_desc = vertices.clone();
+    vertices_by_level_desc.sort_by_key(|v| v.level);
+    vertices_by_level_desc.reverse();
+
     let (distances, predecessors, predecessor_edges) = phast_query(
         &mut phast_path_finding,
         s,
         &vertices,
+        &vertices_by_level_desc,
         &predecessor_offset,
         &edges,
     );
@@ -344,6 +349,10 @@ fn main() {
         &reverse_offset_array_down_predecessors,
     );
 
+    let mut vertices_by_level_desc = vertices.clone();
+    vertices_by_level_desc.sort_by_key(|v| v.level);
+    vertices_by_level_desc.reverse();
+
     let preproc = Instant::now();
 
     for (cell, group) in &vertices_grid.iter().group_by(|v| v.grid_cell) {
@@ -381,6 +390,7 @@ fn main() {
                 &mut arc_flags_path_finding,
                 start,
                 &vertices,
+                &vertices_by_level_desc,
                 &reverse_predecessor_offset_array,
                 &reverse_edges,
             );
@@ -491,6 +501,7 @@ fn phast_query(
     phast_path_finding: &mut Dijkstra,
     s: usize,
     vertices: &Vec<Vertex>,
+    vertices_by_level_desc: &Vec<Vertex>,
     predecessor_offset: &Vec<usize>,
     edges: &Vec<Edge>,
 ) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
@@ -507,14 +518,12 @@ fn phast_query(
     //          for nodes v with level(v) > level(u) and (v, u) ∈ E
 
     let phast_relaxation = Instant::now();
-    let mut vertices_by_level_desc = vertices.clone();
-    vertices_by_level_desc.sort_by_key(|v| v.level);
-    vertices_by_level_desc.reverse();
+
     println!("Sorting took: {:?}", phast_relaxation.elapsed());
 
     let phast_relaxation = Instant::now();
     // Consider all nodes in inverse level order
-    for vertex in &vertices_by_level_desc {
+    for vertex in vertices_by_level_desc {
         for incoming_edge_id in predecessor_offset[vertex.id]..predecessor_offset[vertex.id + 1] {
             let incoming_edge = edges.get(incoming_edge_id).unwrap();
 

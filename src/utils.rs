@@ -194,8 +194,8 @@ pub fn create_predecessor_offset_array(edges: &Vec<Edge>, NUM_VERTICES: usize) -
     offset_array
 }
 
-pub fn create_offset_array(edges: &Vec<Edge>, NUM_VERTICES: usize) -> Vec<usize> {
-    let mut offset_array: Vec<usize> = vec![edges.len(); NUM_VERTICES + 1];
+pub fn create_offset_array(edges: &Vec<Edge>, num_vertices: usize) -> Vec<usize> {
+    let mut offset_array: Vec<usize> = vec![edges.len(); num_vertices + 1];
 
     let mut previous_vertex_id = 0;
     offset_array[0] = 0;

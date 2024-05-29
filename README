@@ -73,4 +73,5 @@ Im Hauptverzeichnis den folgenden Befehl ausführen
 
 0. Don't use Dijkstra Objects for everything. Remove overhead as much as possible -> Decompose
 1. Speedup Phast
+    - Only go through the upward edges so I don't need to check for the level afterwards -> This will do the trick
 2. Don't sort

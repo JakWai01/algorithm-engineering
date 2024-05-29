@@ -2,13 +2,14 @@ use std::{
     collections::BinaryHeap,
     env,
     fs::File,
-    io::{self, BufRead},
+    io::{self},
     mem,
-    path::Path,
     time::Instant,
 };
 extern crate itertools;
 use crate::{
+    bidirectional_ch::BidirectionalContractionHierarchies,
+    ch::ContractionHierarchies,
     dijkstra::Dijkstra,
     objects::Edge,
     utils::{
@@ -16,13 +17,15 @@ use crate::{
         get_grid_cell, read_fmi, read_lines,
     },
 };
-use itertools::Itertools;
 use objects::Vertex;
 use pq::PQEntry;
 mod dijkstra;
 mod pq;
-use io::{Error, Write};
+use io::Write;
+mod bidirectional_ch;
+mod ch;
 mod objects;
+mod phast;
 mod utils;
 
 fn main() {
@@ -88,7 +91,7 @@ fn main() {
     let mut text: String = "".to_string();
 
     for i in &source_target_tuples {
-        let mut path_finding = dijkstra::Dijkstra::new(
+        let mut ch = BidirectionalContractionHierarchies::new(
             num_vertices,
             &offset_array_up,
             &offset_array_down,
@@ -98,7 +101,7 @@ fn main() {
             &offset_array_down_predecessors,
         );
         let now = Instant::now();
-        let (distance, _) = path_finding.bidirectional_ch_query(i.0, i.1);
+        let (distance, _) = ch.bidirectional_ch_query(i.0, i.1);
         let elapsed_time: std::time::Duration = now.elapsed();
         text.push_str(
             format!(
@@ -162,7 +165,7 @@ fn main() {
     vertices_by_level_desc.sort_by_key(|v| v.level);
     vertices_by_level_desc.reverse();
 
-    let (distances, _, _) = phast_query(
+    let (distances, _, _) = phast::phast_query(
         &mut phast_path_finding,
         s,
         &vertices,
@@ -191,8 +194,8 @@ fn main() {
     //                                      __/ |
     //                                     |___/
 
-    let m_rows = 1;
-    let n_columns = 1;
+    let m_rows = 2;
+    let n_columns = 2;
 
     let (min_bound, max_bound) = find_bounds(&vertices);
 
@@ -202,6 +205,17 @@ fn main() {
         let (x_cell, y_cell) = get_grid_cell(*vertex, min_bound, max_bound, m_rows, n_columns);
         vertex.grid_cell = (x_cell as f64, y_cell as f64);
     }
+
+    println!(
+        "Cell {} of start: {:?}",
+        s,
+        cell_to_id(vertices.get(s).unwrap().grid_cell, m_rows, n_columns)
+    );
+    println!(
+        "Cell {} of destination: {:?}",
+        t,
+        cell_to_id(vertices.get(t).unwrap().grid_cell, m_rows, n_columns)
+    );
 
     let mut vertices_grid = vertices.clone();
 
@@ -263,87 +277,128 @@ fn main() {
         &reverse_offset_array_down_predecessors,
     );
 
-    let mut vertices_by_level_desc = vertices.clone();
-    vertices_by_level_desc.sort_by_key(|v| v.level);
-    vertices_by_level_desc.reverse();
-
+    // Rewrite arc flags
     let preproc = Instant::now();
+    for vertex in &vertices {
+        let current_cell = vertex.grid_cell;
 
-    for (cell, group) in &vertices_grid.iter().group_by(|v| v.grid_cell) {
-        let mut boundary_edges: Vec<&Edge> = Vec::new();
-        println!("Looking at cell: {:?}", cell);
-        // Determine all boundary edges in this group
-        for vertex in group {
-            for edge in predecessor_offset[vertex.id]..predecessor_offset[vertex.id + 1] {
-                let edge = edges.get(edge).unwrap();
-                if vertices.get(edge.start_vertex).unwrap().grid_cell
-                    != vertices.get(edge.end_vertex).unwrap().grid_cell
-                    && vertices.get(edge.end_vertex).unwrap().grid_cell == cell
-                {
-                    boundary_edges.push(edge);
-                }
-            }
-        }
+        // if cell_to_id(current_cell, m_rows, n_columns) != 13 {
+        //     continue;
+        // }
 
-        for boundary_edge in boundary_edges {
-            let start = boundary_edge.end_vertex;
+        for edge in predecessor_offset[vertex.id]..predecessor_offset[vertex.id + 1] {
+            let target_edge = edges[edge];
+            let target_node = vertices[target_edge.start_vertex];
+            let neighbour_cell = target_node.grid_cell;
 
-            println!("Start: {}", start);
+            if current_cell != neighbour_cell {
+                // Stimmen die parameter hier wirklich?
+                let (distances, _, _) = phast::phast_query(
+                    &mut arc_flags_path_finding,
+                    vertex.id,
+                    &vertices,
+                    &vertices_by_level_desc,
+                    &reverse_predecessor_offset_array,
+                    &reverse_edges,
+                );
 
-            let mut arc_flags_path_finding = Dijkstra::new(
-                num_vertices,
-                &reverse_offset_array_up,
-                &reverse_offset_array_down,
-                &reverse_edges_up,
-                &reverse_edges_down,
-                &reverse_offset_array_up_predecessors,
-                &reverse_offset_array_down_predecessors,
-            );
-
-            let (distances, predecessors, predecessor_edges) = phast_query(
-                &mut arc_flags_path_finding,
-                start,
-                &vertices,
-                &vertices_by_level_desc,
-                &reverse_predecessor_offset_array,
-                &reverse_edges,
-            );
-
-            // Construct shortest path tree
-            for vertex in &vertices {
-                let mut current_vertex = vertex.id;
-
-                if current_vertex != start {
-                    if distances[current_vertex] == ((usize::MAX / 2) - 1) {
-                        continue;
-                    }
-
-                    let mut predecessor_edge_id = predecessor_edges[current_vertex];
-
-                    let mut predecessor_edge = reverse_edges.get(predecessor_edge_id).unwrap();
-
-                    loop {
-                        arc_flags[predecessor_edge.id]
-                            [cell_to_id(cell, m_rows, n_columns) as usize] = true;
-
-                        current_vertex = predecessors[current_vertex];
-                        if current_vertex == start {
-                            break;
-                        }
-
-                        predecessor_edge_id = predecessor_edges[current_vertex];
-                        predecessor_edge = reverse_edges.get(predecessor_edge_id).unwrap();
+                // This could be a bug. At the moment, we are setting a flag when distances != max but this could also mean that one edge is not on the optimal path
+                for (i, v) in distances.iter().enumerate() {
+                    if *v != ((usize::MAX / 2) - 1) {
+                        arc_flags[i][cell_to_id(current_cell, m_rows, n_columns)] = true
                     }
                 }
+            } else {
+                arc_flags[edge][cell_to_id(current_cell, m_rows, n_columns)] = true;
             }
         }
     }
+
+    //
+
+    // let mut vertices_by_level_desc = vertices.clone();
+    // vertices_by_level_desc.sort_by_key(|v| v.level);
+    // vertices_by_level_desc.reverse();
+
+    // let preproc = Instant::now();
+
+    // for (cell, group) in &vertices_grid.iter().group_by(|v| v.grid_cell) {
+    //     let mut boundary_edges: Vec<&Edge> = Vec::new();
+    //     println!("Looking at cell: {:?}", cell);
+    //     // Determine all boundary edges in this group
+    //     for vertex in group {
+    //         for edge in predecessor_offset[vertex.id]..predecessor_offset[vertex.id + 1] {
+    //             let edge = edges.get(edge).unwrap();
+    //             if vertices.get(edge.start_vertex).unwrap().grid_cell
+    //                 != vertices.get(edge.end_vertex).unwrap().grid_cell
+    //                 && vertices.get(edge.end_vertex).unwrap().grid_cell == cell
+    //             {
+    //                 boundary_edges.push(edge);
+    //             }
+    //         }
+    //     }
+
+    //     for boundary_edge in boundary_edges {
+    //         let start = boundary_edge.end_vertex;
+
+    //         println!("Start: {}", start);
+
+    //         let mut arc_flags_path_finding = Dijkstra::new(
+    //             num_vertices,
+    //             &reverse_offset_array_up,
+    //             &reverse_offset_array_down,
+    //             &reverse_edges_up,
+    //             &reverse_edges_down,
+    //             &reverse_offset_array_up_predecessors,
+    //             &reverse_offset_array_down_predecessors,
+    //         );
+
+    //         let (distances, predecessors, predecessor_edges) = phast_query(
+    //             &mut arc_flags_path_finding,
+    //             start,
+    //             &vertices,
+    //             &vertices_by_level_desc,
+    //             &reverse_predecessor_offset_array,
+    //             &reverse_edges,
+    //         );
+
+    //         // Construct shortest path tree
+    //         for vertex in &vertices {
+    //             let mut current_vertex = vertex.id;
+
+    //             if current_vertex != start {
+    //                 if distances[current_vertex] == ((usize::MAX / 2) - 1) {
+    //                     continue;
+    //                 }
+
+    //                 let mut predecessor_edge_id = predecessor_edges[current_vertex];
+
+    //                 let mut predecessor_edge = reverse_edges.get(predecessor_edge_id).unwrap();
+
+    //                 loop {
+    //                     arc_flags[predecessor_edge.id]
+    //                         [cell_to_id(cell, m_rows, n_columns) as usize] = true;
+
+    //                     current_vertex = predecessors[current_vertex];
+    //                     if current_vertex == start {
+    //                         break;
+    //                     }
+
+    //                     predecessor_edge_id = predecessor_edges[current_vertex];
+    //                     predecessor_edge = reverse_edges.get(predecessor_edge_id).unwrap();
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 
     println!(
         "Arc Flags preproc took: {:?}",
         preproc.elapsed().as_millis()
     );
 
+    println!("Arc flag edge s: {:?}", arc_flags[377371]);
+    println!("Arc flag edge t: {:?}", arc_flags[754742]);
     let arc_dist = arc_flags_query(
         source_target_tuples[0].0,
         source_target_tuples[0].1,
@@ -405,54 +460,4 @@ fn arc_flags_query(
         }
     }
     usize::MAX
-}
-
-fn phast_query(
-    phast_path_finding: &mut Dijkstra,
-    s: usize,
-    vertices: &Vec<Vertex>,
-    vertices_by_level_desc: &Vec<Vertex>,
-    predecessor_offset: &Vec<usize>,
-    edges: &Vec<Edge>,
-) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
-    // 1. Step: Execute a Dijkstra on the up-graph of source node s
-    let up_graph_ch = Instant::now();
-    let (mut distances, mut predecessors, mut predecessor_edges) =
-        phast_path_finding.ch_query(s, &vertices);
-
-    println!(
-        "Executed PHAST up-graph search in: {:?}ms",
-        up_graph_ch.elapsed().as_millis()
-    );
-
-    // 2. Step: Consider all nodes u from high to low level and set d(u) = min{d(u), d(v) + c(v, u)}
-    //          for nodes v with level(v) > level(u) and (v, u) ∈ E
-    let phast_relaxation = Instant::now();
-    // Consider all nodes in inverse level order
-    for vertex in vertices_by_level_desc {
-        for incoming_edge_id in predecessor_offset[vertex.id]..predecessor_offset[vertex.id + 1] {
-            let incoming_edge = edges[incoming_edge_id];
-            if vertices[incoming_edge.start_vertex].level > vertex.level {
-                if distances[vertex.id]
-                    >= distances[incoming_edge.start_vertex] + incoming_edge.weight
-                {
-                    distances[vertex.id] =
-                        distances[incoming_edge.start_vertex] + incoming_edge.weight;
-                    predecessors[vertex.id] = incoming_edge.start_vertex;
-                    predecessor_edges[vertex.id] = incoming_edge_id;
-                }
-            }
-        }
-    }
-
-    println!(
-        "Executed PHAST relaxation in: {:?}ms",
-        phast_relaxation.elapsed().as_millis()
-    );
-
-    (
-        distances.clone(),
-        predecessors.clone(),
-        predecessor_edges.clone(),
-    )
 }

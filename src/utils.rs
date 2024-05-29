@@ -142,8 +142,8 @@ pub fn read_fmi(path: &str) -> (Vec<Vertex>, Vec<Edge>) {
     (vertices, edges)
 }
 
-pub fn cell_to_id(cell: (f64, f64), m_rows: usize, n_columns: usize) -> f64 {
-    return (cell.0 * n_columns as f64) + cell.1;
+pub fn cell_to_id(cell: (f64, f64), m_rows: usize, n_columns: usize) -> usize {
+    return ((cell.0 * n_columns as f64) + cell.1) as usize;
 }
 
 pub fn find_bounds(vertices: &Vec<Vertex>) -> ((f64, f64), (f64, f64)) {

@@ -1,26 +1,26 @@
-use std::{cmp::min, collections::BinaryHeap, f64::INFINITY, thread::current};
+use std::{cmp::min, collections::BinaryHeap, f64::INFINITY};
 
-use crate::{pq::PQEntry, Edge, Vertex};
+use crate::{objects::Edge, pq::PQEntry};
 
-pub(crate) struct Dijkstra<'a> {
-    df: Vec<usize>,
-    db: Vec<usize>,
-    fq: BinaryHeap<PQEntry>,
-    bq: BinaryHeap<PQEntry>,
-    num_vertices: usize,
-    offset_array_up: &'a Vec<usize>,
-    offset_array_down: &'a Vec<usize>,
-    edges_up: &'a Vec<Edge>,
-    edges_down: &'a Vec<Edge>,
+pub(crate) struct BidirectionalContractionHierarchies<'a> {
+    pub df: Vec<usize>,
+    pub db: Vec<usize>,
+    pub fq: BinaryHeap<PQEntry>,
+    pub bq: BinaryHeap<PQEntry>,
+    pub num_vertices: usize,
+    pub offset_array_up: &'a Vec<usize>,
+    pub offset_array_down: &'a Vec<usize>,
+    pub edges_up: &'a Vec<Edge>,
+    pub edges_down: &'a Vec<Edge>,
     pub predecessors_up: Vec<usize>,
     pub predecessors_down: Vec<usize>,
     pub predecessor_edges_up: Vec<usize>,
     pub predecessor_edges_down: Vec<usize>,
-    offset_array_up_predecessors: &'a Vec<usize>,
-    offset_array_down_predecessors: &'a Vec<usize>,
+    pub offset_array_up_predecessors: &'a Vec<usize>,
+    pub offset_array_down_predecessors: &'a Vec<usize>,
 }
 
-impl<'a> Dijkstra<'a> {
+impl<'a> BidirectionalContractionHierarchies<'a> {
     pub fn new(
         num_vertices: usize,
         offset_array_up: &'a Vec<usize>,
@@ -38,8 +38,7 @@ impl<'a> Dijkstra<'a> {
         let predecessors_down: Vec<usize> = (0..num_vertices).map(|_| usize::MAX).collect();
         let predecessor_edges_up: Vec<usize> = (0..num_vertices).map(|_| usize::MAX).collect();
         let predecessor_edges_down: Vec<usize> = (0..num_vertices).map(|_| usize::MAX).collect();
-
-        Dijkstra {
+        Self {
             df,
             db,
             fq,
@@ -58,11 +57,7 @@ impl<'a> Dijkstra<'a> {
         }
     }
 
-    // Based on https://scholar.archive.org/work/kxils2sde5dwpbbqhddzyltabq/access/wayback/https://publikationen.bibliothek.kit.edu/1000028701/142973925
     pub fn bidirectional_ch_query(&mut self, s: usize, t: usize) -> (f64, usize) {
-        // TODO: This takes way too long
-        // self.reset();
-
         self.df[s] = 0;
         self.db[t] = 0;
 
@@ -75,20 +70,19 @@ impl<'a> Dijkstra<'a> {
             vertex: t,
         });
 
-        // length of the bet path yet seen
         let mut d = INFINITY;
         let mut current_min = usize::MAX;
 
         let mut forward = true;
 
-        let mut pq = &mut self.fq;
-        let mut offset_array = &mut self.offset_array_up;
-        let mut dist = &mut self.df;
-        let mut not_dist = &mut self.db;
-        let mut edges = &mut self.edges_up;
-        let mut predecessors = &mut self.predecessors_up;
-        let mut predecessor_edges = &mut self.predecessor_edges_up;
-        let mut offset_array_predecessors = &mut self.offset_array_up_predecessors;
+        let mut pq;
+        let mut offset_array;
+        let mut dist;
+        let mut not_dist;
+        let mut edges;
+        let mut predecessors;
+        let mut predecessor_edges;
+        let mut offset_array_predecessors;
 
         while (!self.fq.is_empty() || !self.bq.is_empty())
             && d > min(
@@ -135,15 +129,9 @@ impl<'a> Dijkstra<'a> {
                 vertex: u,
             }) = pq.pop()
             {
-                // Only store predecessors with higher level for further optimization
-                // TODO: At the moment, this is slower than without sod
-                // Germany sod: 1822
-                // Germany without sod: 1042
                 for e in offset_array_predecessors[u]..offset_array_predecessors[u + 1] {
-                    // println!("Found predecessor: {}", e);
                     let edge = edges.get(e).unwrap();
                     if dist[edge.start_vertex] + edge.weight <= distance {
-                        // println!("Found a better path!");
                         continue;
                     }
                 }
@@ -151,12 +139,6 @@ impl<'a> Dijkstra<'a> {
                 if ((dist[u] + not_dist[u]) as f64) < d {
                     d = (dist[u] + not_dist[u]) as f64;
                     current_min = u;
-                    // println!(
-                    //     "Current min: {current_min}, {:?} = {:?} + {:?}",
-                    //     (dist[u] + not_dist[u]) as f64,
-                    //     dist[u],
-                    //     not_dist[u]
-                    // );
                 }
 
                 for e in offset_array[u]..offset_array[u + 1] {
@@ -169,76 +151,11 @@ impl<'a> Dijkstra<'a> {
                             vertex: v,
                         });
                         predecessors[v] = u;
-                        // We store the predecessor_edge for the corresponding vertex
                         predecessor_edges[v] = edge.id;
                     }
                 }
             }
         }
-        // if current_min == t {
-        //     (f)
-        // }
         (d, current_min)
-    }
-
-    pub fn ch_query(
-        &mut self,
-        start_node: usize,
-        vertices: &Vec<Vertex>,
-    ) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
-        self.df = (0..self.num_vertices)
-            .map(|_| (usize::MAX / 2) - 1)
-            .collect();
-        self.fq.clear();
-        self.df[start_node] = 0;
-        self.fq.push(PQEntry {
-            distance: 0,
-            vertex: start_node,
-        });
-
-        while let Some(PQEntry { distance, vertex }) = self.fq.pop() {
-            // Stall-on-demand
-            for e in self.offset_array_up_predecessors[vertex]
-                ..self.offset_array_up_predecessors[vertex + 1]
-            {
-                let edge = self.edges_up.get(e).unwrap();
-                if self.df[edge.start_vertex] + edge.weight <= distance {
-                    continue;
-                }
-            }
-
-            // Relaxation
-            for j in self.offset_array_up[vertex]..self.offset_array_up[vertex + 1] {
-                let edge = self.edges_up.get(j).unwrap();
-                if vertices.get(edge.end_vertex).unwrap().level
-                    > vertices.get(edge.start_vertex).unwrap().level
-                {
-                    if self.df[edge.end_vertex] > self.df[vertex] + edge.weight {
-                        self.df[edge.end_vertex] = self.df[vertex] + edge.weight;
-                        self.fq.push(PQEntry {
-                            distance: self.df[vertex] + edge.weight,
-                            vertex: edge.end_vertex,
-                        });
-
-                        if start_node == 163217 {
-                            println!("Vertex: {}", vertex);
-                            println!("Edge: {:?}", edge);
-                            println!(
-                                "Setting {} as the predecessor of {}",
-                                edge.start_vertex, edge.end_vertex
-                            );
-                        }
-
-                        self.predecessors_up[edge.end_vertex] = edge.start_vertex;
-                        self.predecessor_edges_up[edge.end_vertex] = edge.id;
-                    }
-                }
-            }
-        }
-        (
-            self.df.clone(),
-            self.predecessors_up.clone(),
-            self.predecessor_edges_up.clone(),
-        )
     }
 }

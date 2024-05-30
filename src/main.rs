@@ -306,7 +306,9 @@ fn main() {
     assert_eq!(436627, distances[377371]);
 
     println!("Distance to 436627: {}", distances[377371]);
-    assert!(false);
+
+    println!("predecessor of 377371: {}", predecessors[377371]);
+    println!("predecessor of 377370: {}", predecessors[377370]);
 
     // Rewrite arc flags
     let preproc = Instant::now();
@@ -328,10 +330,32 @@ fn main() {
             if current_cell != neighbour_cell {
                 let s = vertex.id;
 
+                // let mut arc_flags_path_finding = Dijkstra::new(
+                //     num_vertices,
+                //     &reverse_offset_array_up,
+                //     &reverse_offset_array_down,
+                //     &reverse_edges_up,
+                //     &reverse_edges_down,
+                //     &reverse_offset_array_up_predecessors,
+                //     &reverse_offset_array_down_predecessors,
+                // );
+
+                // // If there is a fault at this, execute a single fast before that, panic after but use the data structures and the example. We should be able to find a path between our standard nodes
+                // let (distances, predecessors, predecessor_edges) = phast::phast_new(
+                //     &mut arc_flags_path_finding,
+                //     s,
+                //     &vertices,
+                //     &vertices_by_level_desc,
+                //     &up_edges_reversed_offset,
+                //     &reverse_edges,
+                // );
+
+                // Swap all up and downs here
                 let mut arc_flags_path_finding = Dijkstra::new(
                     num_vertices,
                     &reverse_offset_array_up,
                     &reverse_offset_array_down,
+                    // Reverse edges up sind die edges aus edges_down
                     &reverse_edges_up,
                     &reverse_edges_down,
                     &reverse_offset_array_up_predecessors,
@@ -344,10 +368,9 @@ fn main() {
                     s,
                     &vertices,
                     &vertices_by_level_desc,
-                    &up_edges_reversed_offset,
-                    &reverse_edges,
+                    &reverse_offset_array_down,
+                    &reverse_edges_down,
                 );
-
                 // Construct shortest path tree
                 for v in &vertices {
                     let mut current_vertex: usize = v.id;
@@ -370,6 +393,9 @@ fn main() {
                             continue;
                         }
                         // println!("Vertex id {}", vertex.id);
+                        // println!("Current start: {}", s);
+                        // println!("Current vertex: {}", current_vertex);
+                        // println!("Distance to current vertex: {}", distances[current_vertex]);
 
                         let mut predecessor_edge_id = predecessor_edges[current_vertex];
 

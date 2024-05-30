@@ -75,10 +75,15 @@ pub fn phast_new(
     let (mut distances, mut predecessors, mut predecessor_edges) =
         phast_path_finding.ch_query(s, &vertices);
 
+    println!("Distance to peek: {}", distances[183053]);
+
     // 2. Step: Consider all nodes u from high to low level and set d(u) = min{d(u), d(v) + c(v, u)}
     //          for nodes v with level(v) > level(u) and (v, u) ∈ E
     for vertex in vertices_by_level_desc {
         for neighbour in edges_down_offset[vertex.id]..edges_down_offset[vertex.id + 1] {
+            if vertex.id == 183053 {
+                println!("Neighbour: {:?}", edges[neighbour]);
+            }
             let edge = edges[neighbour];
             if distances[edge.end_vertex] >= distances[vertex.id] + edge.weight {
                 distances[edge.end_vertex] = distances[vertex.id] + edge.weight;

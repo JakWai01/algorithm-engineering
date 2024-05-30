@@ -183,6 +183,7 @@ fn main() {
     );
 
     assert_eq!(436627, distances[754742]);
+    println!("peek-target = {}", 436627 - 164584);
 
     for i in 0..num_vertices {
         text.push_str(format!("{} {}\n", i, distances[i]).as_str());
@@ -243,10 +244,10 @@ fn main() {
         .for_each(|edge| mem::swap(&mut edge.start_vertex, &mut edge.end_vertex));
 
     // Sort by end_vertex again for the creation of the predecessor array to work
-    reverse_edges.sort_by_key(|edge: &Edge| edge.end_vertex);
+    reverse_edges.sort_by_key(|edge: &Edge| edge.start_vertex);
 
-    let reverse_predecessor_offset_array =
-        create_predecessor_offset_array(&reverse_edges, num_vertices);
+    // let reverse_predecessor_offset_array =
+    // create_predecessor_offset_array(&reverse_edges, num_vertices);
 
     // Prepare the data again but this time for the reverse query
     let (mut reverse_edges_up, mut reverse_edges_down): (Vec<Edge>, Vec<Edge>) =
@@ -255,9 +256,9 @@ fn main() {
                 < vertices.get(edge.end_vertex).unwrap().level
         });
 
-    reverse_edges_down.iter_mut().for_each(|edge| {
-        std::mem::swap(&mut edge.start_vertex, &mut edge.end_vertex);
-    });
+    // reverse_edges_down.iter_mut().for_each(|edge| {
+    //     std::mem::swap(&mut edge.start_vertex, &mut edge.end_vertex);
+    // });
 
     reverse_edges_up.sort_by_key(|edge| edge.start_vertex);
     reverse_edges_down.sort_by_key(|edge| edge.start_vertex);
@@ -278,6 +279,34 @@ fn main() {
 
     let reverse_offset_array_down_predecessors: Vec<usize> =
         create_predecessor_offset_array(&reverse_predecessor_downward_edges, num_vertices);
+
+    // Swap all up and downs here
+    let mut arc_flags_path_finding = Dijkstra::new(
+        num_vertices,
+        &reverse_offset_array_up,
+        &reverse_offset_array_down,
+        // Reverse edges up sind die edges aus edges_down
+        &reverse_edges_up,
+        &reverse_edges_down,
+        &reverse_offset_array_up_predecessors,
+        &reverse_offset_array_down_predecessors,
+    );
+
+    // If there is a fault at this, execute a single fast before that, panic after but use the data structures and the example. We should be able to find a path between our standard nodes
+    let (distances, predecessors, predecessor_edges) = phast::phast_new(
+        &mut arc_flags_path_finding,
+        754742,
+        &vertices,
+        &vertices_by_level_desc,
+        &reverse_offset_array_down,
+        &reverse_edges_down,
+    );
+
+    // This should yield the correct distance but it doesnt. Debug the fast query next
+    assert_eq!(436627, distances[377371]);
+
+    println!("Distance to 436627: {}", distances[377371]);
+    assert!(false);
 
     // Rewrite arc flags
     let preproc = Instant::now();
@@ -309,6 +338,7 @@ fn main() {
                     &reverse_offset_array_down_predecessors,
                 );
 
+                // If there is a fault at this, execute a single fast before that, panic after but use the data structures and the example. We should be able to find a path between our standard nodes
                 let (distances, predecessors, predecessor_edges) = phast::phast_new(
                     &mut arc_flags_path_finding,
                     s,
@@ -322,24 +352,30 @@ fn main() {
                 for v in &vertices {
                     let mut current_vertex: usize = v.id;
 
+                    if s == 754742 && v.id == 377371 {
+                        println!("Distance: {:?}", distances[377371]);
+                        if distances[current_vertex] != ((usize::MAX / 2) - 1) {
+                            println!(
+                                "Predecessor of our node: {:?}",
+                                predecessor_edges[current_vertex]
+                            );
+                        }
+                    }
+                    // if v.id == 377371 {
+                    //     println!("pred edge id: {:?}", predecessor_edges[current_vertex]);
+                    // }
                     if current_vertex != s {
+                        // If infinite, then there is no path from s to current_vertex
                         if distances[current_vertex] == ((usize::MAX / 2) - 1) {
                             continue;
                         }
                         // println!("Vertex id {}", vertex.id);
-
-                        if v.id == 754742 {
-                            println!("EHREJREHJERH");
-                        }
 
                         let mut predecessor_edge_id = predecessor_edges[current_vertex];
 
                         // let mut predecessor_edge = reverse_edges.get(predecessor_edge_id).unwrap();
 
                         loop {
-                            if v.id == 754742 {
-                                println!("pred edge id: {:?}", predecessor_edge_id);
-                            }
                             // println!("Predecessor edge id: {}", predecessor_edge_id);
                             // if predecessor_edge_id == 27771 {
                             //     println!(
@@ -348,6 +384,9 @@ fn main() {
                             //     );
                             // }
                             // println!("Set arc flag for vertex: {}", predecessor_edge.id);
+
+                            // This is true
+                            // println!("Predecessor edge id general: {:?}", predecessor_edge_id);
                             arc_flags[predecessor_edge_id].set(current_cell_id, true);
 
                             // println!(

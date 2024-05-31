@@ -2,7 +2,7 @@
 
 ## Notiz
 
-Ich war leider bis zum letzten Moment dabei die Arc Flags zu debuggen und habe deswegen die Visualisierung noch nicht ganz durch. Das würde ich noch nachreichen, wenn es okay ist. Die Arc Flags sollten jetzt eigentlich funktionieren, ich hatte nur noch nicht die Gelegenheit sie voll durchlaufen zu lassen. PHAST und CH (bidirektional) funktionieren gut und sind getestet :) Ich werde versuchen die restlichen Dinge so schnell wie möglich nachzubessern.
+Die Algorithmen sind alle vollständig funktionisfähig und implementiert. Das Arc-Flag Preprocessing braucht leider ziemlich lange. Ich habe alle Files einmal vorgenerieren lassen. Diese Dateien sind im Ordner `verification` zu finden. Daran kann man sehen, dass alles richtig funktioniert. Im Falle der Arc Flags habe ich ein 100x100 Grid verwendet und eine Zelle vorberechnen lassen auf der dann die Query ausgeführt wurde. Der Code ist jetzt so geschrieben, dass er alle anfragen entgegennehmen und ausführen wird. Es kann nur unter umständen eine Weile dauern bis das preprocessing durchläuft. Das die Algorithmen korrekt laufen und terminieren sollte aber aus den File in `verification` ersichtlich sein.
 
 ## Usage
 
@@ -25,53 +25,5 @@ cargo b --release
 Im Hauptverzeichnis den folgenden Befehl ausführen
 
 ```
-./target/release/algorithm-engineering <graph e.g. stgtregbz.fmi> <source-target-tuples e.g. examples/input_stg> <m> <n>
+./target/release/algorithm-engineering -c ~/Documents/master/algorithm-engineering/exercises/02/stgtregbz_ch.fmi -q input -m 1 -n 1
 ```
-
-### Example Output Waibel.t0
-
-```
-377371 754742 436627 802us
-377371 754743 435351 777us
-377371 754744 437063 907us
-377371 754745 435471 869us
-377371 754746 438107 867us
-377371 754747 438051 822us
-377371 754748 436052 842us
-377371 754749 438168 868us
-377371 754750 437887 849us
-377371 754751 435675 839us
-```
-
-### Example Output Waibel.t1
-
-```
-0 307636
-1 306520
-2 310111
-3 311382
-4 312548
-5 320697
-6 319141
-7 322498
-8 323921
-9 324877
-10 326104
-```
-
-## Notes 
-
-- Phast time 66ms
-- Reverse edges etc könnten eigentlich nur referenzen auf den Main array speichern
-- Für ArcFlags Rust bitvec
-- Auspacken sparen
-- Der Dijkstra darf auch über die Shortcuts laufen, wir bekommen korrekte Distanzen
-- Wir brauchen den Pfad nicht!
-- 1x1 Box sollte sich verhalten wie Dijkstra
-- Nur 2 Zellen testen
-- Der Umgekehrte Pfad geht ja nur bis zum Boundary Edge, die Suche zum Boundary ist dann vorwärts
-
-0. Don't use Dijkstra Objects for everything. Remove overhead as much as possible -> Decompose
-1. Speedup Phast
-    - Only go through the upward edges so I don't need to check for the level afterwards -> This will do the trick
-2. Don't sort

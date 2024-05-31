@@ -204,5 +204,5 @@ pub fn construct_spt(
             }
         }
     }
-    println!("Spt took: {:?}", spt.elapsed());
+    // println!("Spt took: {:?}", spt.elapsed());
 }

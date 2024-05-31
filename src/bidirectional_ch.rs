@@ -55,7 +55,11 @@ impl<'a> BidirectionalContractionHierarchies<'a> {
         }
     }
 
-    pub fn bidirectional_ch_query(&mut self, s: usize, t: usize) -> (f64, usize) {
+    pub fn bidirectional_ch_query(
+        &mut self,
+        s: usize,
+        t: usize,
+    ) -> (f64, usize, Vec<usize>, Vec<usize>) {
         self.df[s] = 0;
         self.db[t] = 0;
 
@@ -81,6 +85,9 @@ impl<'a> BidirectionalContractionHierarchies<'a> {
         let mut predecessors;
         let mut predecessor_edges;
         let mut offset_array_predecessors;
+
+        let mut vertices_search_space = Vec::new();
+        let mut edge_search_space = Vec::new();
 
         while (!self.fq.is_empty() || !self.bq.is_empty())
             && d > min(
@@ -127,6 +134,8 @@ impl<'a> BidirectionalContractionHierarchies<'a> {
                 vertex: u,
             }) = pq.pop()
             {
+                vertices_search_space.push(u);
+
                 for e in offset_array_predecessors[u]..offset_array_predecessors[u + 1] {
                     let edge = edges.get(e).unwrap();
                     if dist[edge.start_vertex] + edge.weight <= distance {
@@ -140,6 +149,7 @@ impl<'a> BidirectionalContractionHierarchies<'a> {
                 }
 
                 for e in offset_array[u]..offset_array[u + 1] {
+                    edge_search_space.push(e);
                     let edge = edges.get(e).unwrap();
                     let v = edge.end_vertex;
                     if dist[u] + edge.weight < dist[v] {
@@ -154,6 +164,6 @@ impl<'a> BidirectionalContractionHierarchies<'a> {
                 }
             }
         }
-        (d, current_min)
+        (d, current_min, vertices_search_space, edge_search_space)
     }
 }

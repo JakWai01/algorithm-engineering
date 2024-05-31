@@ -173,6 +173,8 @@ fn main() {
     vertices_by_level_desc.sort_by_key(|v| v.level);
     vertices_by_level_desc.reverse();
 
+    let phast_timer = Instant::now();
+
     let (distances, _, _) = phast::phast_new(
         &mut phast_path_finding,
         s,
@@ -182,12 +184,17 @@ fn main() {
         &edge_clone_down,
     );
 
+    let phast_time = phast_timer.elapsed();
+
     assert_eq!(436627, distances[754742]);
     println!("peek-target = {}", 436627 - 164584);
 
     for i in 0..num_vertices {
         text.push_str(format!("{} {}\n", i, distances[i]).as_str());
     }
+
+    // Laufzeit in letzter Zeile anzeigen
+    text.push_str(format!("Laufzeit: {:?}", phast_time).as_str());
 
     let path = "Waibel.t1";
 
@@ -244,7 +251,7 @@ fn main() {
         .for_each(|edge| mem::swap(&mut edge.start_vertex, &mut edge.end_vertex));
 
     // Sort by end_vertex again for the creation of the predecessor array to work
-    reverse_edges.sort_by_key(|edge: &Edge| edge.start_vertex);
+    // reverse_edges.sort_by_key(|edge: &Edge| edge.start_vertex);
 
     // let reverse_predecessor_offset_array =
     // create_predecessor_offset_array(&reverse_edges, num_vertices);
@@ -292,15 +299,55 @@ fn main() {
         &reverse_offset_array_down_predecessors,
     );
 
+    let s = 754742;
+
+    // Debug
+    // edges.sort_by_key(|edge: &Edge| edge.end_vertex);
+
+    // for neighbour in predecessor_offset[32694]..predecessor_offset[32694 + 1] {
+    //     println!(
+    //         "Normal neighbours of peek: {:?}",
+    //         edges.get(neighbour).unwrap()
+    //     );
+    // }
+    for neighbour in reverse_offset_array_down[32694]..reverse_offset_array_down[32694 + 1] {
+        println!(
+            "Neighbour of peek: {:?}",
+            reverse_edges_down.get(neighbour).unwrap()
+        )
+    }
+
     // If there is a fault at this, execute a single fast before that, panic after but use the data structures and the example. We should be able to find a path between our standard nodes
     let (distances, predecessors, predecessor_edges) = phast::phast_new(
         &mut arc_flags_path_finding,
-        754742,
+        s,
         &vertices,
         &vertices_by_level_desc,
         &reverse_offset_array_down,
         &reverse_edges_down,
     );
+
+    println!(
+        "Predecessor edge of 621003: {:?}",
+        reverse_edges.get(predecessor_edges[621003]).unwrap()
+    );
+    // if s == 754742 {
+    //     println!(
+    //         "Predecessor edge of 173169: {:?}",
+    //         reverse_edges.get(predecessor_edges[173169]).unwrap()
+    //     );
+    //     assert_eq!(572116, predecessor_edges[173169]);
+    // }
+
+    let path: Vec<usize> = vec![
+        377371, 377370, 357425, 357426, 119334, 119339, 173169, 119364, 1104076, 415851, 10557,
+        10938, 621003, 183053, 872669, 16825, 407460, 6193, 6215, 64916, 71162, 92904, 306882,
+        754755, 754745, 754736, 911476, 754741, 754742,
+    ];
+
+    for v in path {
+        println!("Predecessor edge of {} is {:?}", v, predecessor_edges[v])
+    }
 
     // This should yield the correct distance but it doesnt. Debug the fast query next
     assert_eq!(436627, distances[377371]);
@@ -330,26 +377,6 @@ fn main() {
             if current_cell != neighbour_cell {
                 let s = vertex.id;
 
-                // let mut arc_flags_path_finding = Dijkstra::new(
-                //     num_vertices,
-                //     &reverse_offset_array_up,
-                //     &reverse_offset_array_down,
-                //     &reverse_edges_up,
-                //     &reverse_edges_down,
-                //     &reverse_offset_array_up_predecessors,
-                //     &reverse_offset_array_down_predecessors,
-                // );
-
-                // // If there is a fault at this, execute a single fast before that, panic after but use the data structures and the example. We should be able to find a path between our standard nodes
-                // let (distances, predecessors, predecessor_edges) = phast::phast_new(
-                //     &mut arc_flags_path_finding,
-                //     s,
-                //     &vertices,
-                //     &vertices_by_level_desc,
-                //     &up_edges_reversed_offset,
-                //     &reverse_edges,
-                // );
-
                 // Swap all up and downs here
                 let mut arc_flags_path_finding = Dijkstra::new(
                     num_vertices,
@@ -362,7 +389,6 @@ fn main() {
                     &reverse_offset_array_down_predecessors,
                 );
 
-                // If there is a fault at this, execute a single fast before that, panic after but use the data structures and the example. We should be able to find a path between our standard nodes
                 let (distances, predecessors, predecessor_edges) = phast::phast_new(
                     &mut arc_flags_path_finding,
                     s,
@@ -371,65 +397,59 @@ fn main() {
                     &reverse_offset_array_down,
                     &reverse_edges_down,
                 );
+
+                // if s == 754742 {
+                //     println!(
+                //         "Predecessor edge of 173169: {:?}",
+                //         reverse_edges.get(predecessor_edges[173169]).unwrap()
+                //     );
+                //     assert_eq!(572116, predecessor_edges[173169]);
+                // }
+
                 // Construct shortest path tree
                 for v in &vertices {
                     let mut current_vertex: usize = v.id;
 
-                    if s == 754742 && v.id == 377371 {
+                    if s == 754742 && current_vertex == 377371 {
                         println!("Distance: {:?}", distances[377371]);
                         if distances[current_vertex] != ((usize::MAX / 2) - 1) {
                             println!(
                                 "Predecessor of our node: {:?}",
-                                predecessor_edges[current_vertex]
+                                predecessors[current_vertex]
                             );
                         }
                     }
-                    // if v.id == 377371 {
-                    //     println!("pred edge id: {:?}", predecessor_edges[current_vertex]);
-                    // }
+
                     if current_vertex != s {
                         // If infinite, then there is no path from s to current_vertex
                         if distances[current_vertex] == ((usize::MAX / 2) - 1) {
                             continue;
                         }
-                        // println!("Vertex id {}", vertex.id);
-                        // println!("Current start: {}", s);
-                        // println!("Current vertex: {}", current_vertex);
-                        // println!("Distance to current vertex: {}", distances[current_vertex]);
 
+                        if s == 754742 && v.id == 377371 {
+                            println!("Path start: {}", current_vertex);
+                        }
+
+                        // Für 119339 ist hier eine random Edge als predecessor eingetragen, die nichtmal zu 119339 führt
                         let mut predecessor_edge_id = predecessor_edges[current_vertex];
 
-                        // let mut predecessor_edge = reverse_edges.get(predecessor_edge_id).unwrap();
-
                         loop {
-                            // println!("Predecessor edge id: {}", predecessor_edge_id);
-                            // if predecessor_edge_id == 27771 {
-                            //     println!(
-                            //         "Set arc flag of vertex: {:?} for cell {}",
-                            //         predecessor_edge_id, current_cell_id
-                            //     );
-                            // }
-                            // println!("Set arc flag for vertex: {}", predecessor_edge.id);
+                            if s == 754742 && v.id == 377371 {
+                                println!("Marking edge {}", predecessor_edge_id);
+                            }
 
-                            // This is true
-                            // println!("Predecessor edge id general: {:?}", predecessor_edge_id);
+                            // We are marking the reverse edges down here. That will be the error
                             arc_flags[predecessor_edge_id].set(current_cell_id, true);
 
-                            // println!(
-                            //     "Sanity in cell {}check: {:?}",
-                            //     current_cell_id,
-                            //     *arc_flags[predecessor_edge_id]
-                            //         .get(current_cell_id)
-                            //         .unwrap()
-                            //         .as_ref()
-                            // );
                             current_vertex = predecessors[current_vertex];
+                            if s == 754742 && v.id == 377371 {
+                                println!("Next one: {}", current_vertex);
+                            }
                             if current_vertex == s {
                                 break;
                             }
 
                             predecessor_edge_id = predecessor_edges[current_vertex];
-                            // predecessor_edge = reverse_edges.get(predecessor_edge_id).unwrap();
                         }
                     }
                 }
@@ -445,34 +465,31 @@ fn main() {
         preproc.elapsed().as_millis()
     );
 
-    // for edge in &edges {
-    //     if *arc_flags[edge.id].get(2470).unwrap().as_ref() {
-    //         println!("Got one");
-    //     }
-    // }
+    // This is absolutely useless, we are looking at edges here
+    println!(
+        "Arc flag edge 939840: {:?}",
+        arc_flags[939840]
+            .iter()
+            .filter(|item| *item.as_ref() == true)
+            .collect::<BitVec>()
+    );
+    println!(
+        "Arc flag edge 3015456: {:?}",
+        arc_flags[3015456]
+            .iter()
+            .filter(|item| *item.as_ref() == true)
+            .collect::<BitVec>()
+    );
 
+    println!("Edge that was marked: {:?}", edges.get(473811).unwrap());
     println!(
-        "Arc flag edge s: {:?}",
-        arc_flags[377371]
-            .iter()
-            .filter(|item| *item.as_ref() == true)
-            .collect::<BitVec>()
+        "Edge that should have been marked: {:?}",
+        edges.get(572116).unwrap()
     );
-    println!(
-        "Arc flag edge t: {:?}",
-        arc_flags[754742]
-            .iter()
-            .filter(|item| *item.as_ref() == true)
-            .collect::<BitVec>()
-    );
-    println!(
-        "Arc flag edge t: {:?}",
-        arc_flags[213251]
-            .iter()
-            .filter(|item| *item == true)
-            .collect::<BitVec>()
-    );
-    let arc_dist = arc_flags_query(
+
+    println!("Sanity check: {:?}", edges.get(939840).unwrap());
+
+    let (arc_dist, predecessors) = arc_flags_query(
         source_target_tuples[0].0,
         source_target_tuples[0].1,
         vertices,
@@ -481,9 +498,17 @@ fn main() {
         m_rows,
         n_columns,
         arc_flags,
+        num_vertices,
     );
 
     println!("Arc dist {}", arc_dist);
+
+    let mut current = source_target_tuples[0].1;
+    while current != source_target_tuples[0].0 {
+        println!("Path current: {}", current);
+        current = predecessors[current]
+    }
+    println!("Path current: {}", source_target_tuples[0].0);
 
     assert_eq!(436627, arc_dist);
 }
@@ -497,11 +522,13 @@ fn arc_flags_query(
     m_rows: usize,
     n_columns: usize,
     arc_flags: Vec<BitVec>,
-) -> usize {
+    num_vertices: usize,
+) -> (usize, Vec<usize>) {
     let mut dist: Vec<usize> = (0..vertices.len())
         .map(|_| ((usize::MAX / 2) - 1))
         .collect();
     let mut pq: BinaryHeap<PQEntry> = BinaryHeap::new();
+    let mut predecessors = (0..num_vertices).map(|_| usize::MAX).collect();
 
     // Determine cell of target
     let id = cell_to_id(
@@ -518,41 +545,60 @@ fn arc_flags_query(
         vertex: start_node,
     });
 
+    let path: Vec<usize> = vec![
+        377371, 377370, 357425, 357426, 119334, 119339, 173169, 119364, 1104076, 415851, 10557,
+        10938, 621003, 183053, 872669, 16825, 407460, 6193, 6215, 64916, 71162, 92904, 306882,
+        754755, 754745, 754736, 911476, 754741, 754742,
+    ];
     while let Some(PQEntry { distance, vertex }) = pq.pop() {
         if vertex == target_node {
-            return distance;
+            return (distance, predecessors);
         };
 
         for j in offset_array[vertex]..offset_array[vertex + 1] {
+            let edge = edges.get(j).unwrap();
+            // if path.contains(&edge.end_vertex) {
+            //     println!("Current neighbour: {}", edge.end_vertex);
+            // }
+            if vertex == 119339 {
+                println!("My neighbour: {:?}", edge);
+            }
             if let Some(bit) = arc_flags[j].get(id as usize) {
+                if vertex == 119339 {
+                    println!("Bit of my neighbour: {:?}", *bit.as_ref());
+                }
                 if *bit.as_ref() == true {
-                    println!("Visiting any node!");
-                    if j == 754742 {
-                        println!("Visiting target node");
-                    }
                     let edge = edges.get(j).unwrap();
-                    if j == 754742 {
-                        println!("Target Edge {:?}", edge);
+                    if vertex == 119339 {
                         println!(
-                            "Edge {} > {} + {}",
+                            "{} > {} + {}",
                             dist[edge.end_vertex], dist[vertex], edge.weight
                         );
                     }
                     if dist[edge.end_vertex] > dist[vertex] + edge.weight {
-                        if edge.end_vertex == 754742 {
-                            println!("Relaxing target edge!");
+                        if vertex == 119339 {
+                            println!("Relaxing {:?}", edge);
                         }
+                        if edge.end_vertex == 173169 {
+                            println!("Relaxing {:?}", edge);
+                            println!(
+                                "with distance: {} > {} {}",
+                                dist[edge.end_vertex], dist[vertex], edge.weight
+                            );
+                        }
+                        // if path.contains(&edge.end_vertex) {
+                        //     println!("Relaxing {:?}", edge);
+                        // }
                         dist[edge.end_vertex] = dist[vertex] + edge.weight;
                         pq.push(PQEntry {
                             distance: dist[vertex] + edge.weight,
                             vertex: edge.end_vertex,
                         });
+                        predecessors[edge.end_vertex] = vertex;
                     }
-                } else {
-                    println!("MARKING MISTAKE");
                 }
             }
         }
     }
-    usize::MAX
+    (usize::MAX, Vec::new())
 }

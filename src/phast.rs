@@ -77,18 +77,39 @@ pub fn phast_new(
 
     // println!("Distance to peek: {}", distances[183053]);
 
+    // Haven't found the edge yet
+    // println!(
+    //     "Predecessor edges before 2nd step: {:?}",
+    //     predecessor_edges[173169]
+    // );
+
     // 2. Step: Consider all nodes u from high to low level and set d(u) = min{d(u), d(v) + c(v, u)}
     //          for nodes v with level(v) > level(u) and (v, u) ∈ E
     for vertex in vertices_by_level_desc {
         for neighbour in edges_down_offset[vertex.id]..edges_down_offset[vertex.id + 1] {
+            let edge = edges.get(neighbour).unwrap();
+
+            // Eigentlich sollte hier 32694
             // if vertex.id == 183053 {
-            //     println!("Neighbour: {:?}", edges[neighbour]);
+            //     println!("Wrong edge: {:?}", edge);
             // }
-            let edge = edges[neighbour];
+            assert_eq!(vertex.id, edge.start_vertex);
+
             if distances[edge.end_vertex] >= distances[vertex.id] + edge.weight {
                 distances[edge.end_vertex] = distances[vertex.id] + edge.weight;
                 predecessors[edge.end_vertex] = vertex.id;
-                predecessor_edges[edge.end_vertex] = neighbour;
+                if s == 754742 && vertex.id == 183053 && edge.end_vertex == 621003 {
+                    println!(
+                        "Setting predecessor edge for {}: {:?}, {}",
+                        edge.end_vertex,
+                        edges.get(neighbour).unwrap(),
+                        neighbour,
+                    );
+                }
+                predecessor_edges[edge.end_vertex] = edge.id;
+                if s == 754742 && vertex.id == 183053 && edge.end_vertex == 621003 {
+                    println!("Pred: {}", predecessor_edges[edge.end_vertex]);
+                }
             }
         }
     }

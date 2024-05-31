@@ -202,6 +202,9 @@ pub fn create_offset_array(edges: &Vec<Edge>, num_vertices: usize) -> Vec<usize>
 
     for (edge_index, edge) in edges.iter().enumerate() {
         if edge.start_vertex != previous_vertex_id {
+            // if edge.start_vertex == 32694 {
+            //     println!("Construction offset: {:?}", edge);
+            // }
             for j in previous_vertex_id + 1..=edge.start_vertex {
                 offset_array[j] = edge_index;
             }

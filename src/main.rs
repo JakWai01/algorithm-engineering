@@ -5,8 +5,8 @@ use crate::{
     dijkstra::ContractionHierarchies,
     objects::Edge,
     utils::{
-        cell_to_id, create_offset_array, create_predecessor_offset_array, find_bounds,
-        get_grid_cell, read_fmi, read_lines,
+        cell_to_id, construct_spt, create_offset_array, create_predecessor_offset_array,
+        find_bounds, get_grid_cell, read_fmi, read_lines,
     },
 };
 use bitvec::vec::BitVec;
@@ -126,8 +126,6 @@ fn main() {
     let mut output = File::create(path).unwrap();
     write!(output, "{}", text).unwrap();
 
-    // println!("Distance: {}", distance);
-
     // _____  _    _           _____ _______
     // |  __ \| |  | |   /\    / ____|__   __|
     // | |__) | |__| |  /  \  | (___    | |
@@ -235,12 +233,6 @@ fn main() {
     reverse_predecessor_upward_edges.sort_by_key(|edge| edge.end_vertex);
     reverse_predecessor_downward_edges.sort_by_key(|edge| edge.end_vertex);
 
-    let reverse_offset_array_up_predecessors: Vec<usize> =
-        create_predecessor_offset_array(&reverse_predecessor_upward_edges, num_vertices);
-
-    let reverse_offset_array_down_predecessors: Vec<usize> =
-        create_predecessor_offset_array(&reverse_predecessor_downward_edges, num_vertices);
-
     // Rewrite arc flags
     let preproc = Instant::now();
     for vertex in &vertices {
@@ -282,31 +274,15 @@ fn main() {
                 );
                 println!("Arc Phast took: {:?}", arc_phast.elapsed());
 
-                // Construct shortest path tree
-                let spt = Instant::now();
-                for v in &vertices {
-                    let mut current_vertex: usize = v.id;
-                    if current_vertex != s {
-                        // If infinite, then there is no path from s to current_vertex
-                        if distances[current_vertex] == ((usize::MAX / 2) - 1) {
-                            continue;
-                        }
-
-                        let mut predecessor_edge_id = predecessor_edges[current_vertex];
-
-                        loop {
-                            arc_flags[predecessor_edge_id].set(current_cell_id, true);
-
-                            current_vertex = predecessors[current_vertex];
-                            if current_vertex == s {
-                                break;
-                            }
-
-                            predecessor_edge_id = predecessor_edges[current_vertex];
-                        }
-                    }
-                }
-                println!("Spt took: {:?}", spt.elapsed());
+                construct_spt(
+                    s,
+                    &vertices,
+                    &distances,
+                    &predecessors,
+                    &predecessor_edges,
+                    current_cell_id,
+                    &mut arc_flags,
+                )
             } else {
                 // In the 0 0 case, we are always in here
                 arc_flags[edge].set(current_cell_id, true);
@@ -315,6 +291,8 @@ fn main() {
     }
 
     println!("Arcflag preproc took: {:?}", preproc.elapsed());
+
+    let arc_query = Instant::now();
     let (arc_dist, _) = arc_flags_query(
         source_target_tuples[0].0,
         source_target_tuples[0].1,
@@ -326,6 +304,8 @@ fn main() {
         arc_flags,
         num_vertices,
     );
+
+    println!("Arc flags query took: {:?}", arc_query.elapsed());
 
     println!("Arc dist {}", arc_dist);
 

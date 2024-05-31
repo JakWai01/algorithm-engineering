@@ -2,7 +2,10 @@ use std::{
     fs::File,
     io::{self, BufRead},
     path::Path,
+    time::Instant,
 };
+
+use bitvec::vec::BitVec;
 
 use crate::{Edge, Vertex};
 
@@ -113,8 +116,8 @@ pub fn get_grid_cell(
     (x_index.min(m - 1), y_index.min(n - 1)) // Ensure indices are within bounds
 }
 
-pub fn create_predecessor_offset_array(edges: &Vec<Edge>, NUM_VERTICES: usize) -> Vec<usize> {
-    let mut offset_array: Vec<usize> = vec![edges.len(); NUM_VERTICES + 1];
+pub fn create_predecessor_offset_array(edges: &Vec<Edge>, num_vertices: usize) -> Vec<usize> {
+    let mut offset_array: Vec<usize> = vec![edges.len(); num_vertices + 1];
 
     let mut previous_vertex_id = 0;
     offset_array[0] = 0;
@@ -158,4 +161,48 @@ where
 {
     let file = File::open(filename)?;
     Ok(io::BufReader::new(file).lines())
+}
+
+pub fn construct_spt(
+    s: usize,
+    vertices: &Vec<Vertex>,
+    distances: &Vec<usize>,
+    predecessors: &Vec<usize>,
+    predecessor_edges: &Vec<usize>,
+    current_cell_id: usize,
+    arc_flags: &mut Vec<BitVec>,
+) {
+    let spt = Instant::now();
+    for v in vertices {
+        let mut current_vertex: usize = v.id;
+        if current_vertex != s {
+            // If infinite, then there is no path from s to current_vertex
+            if distances[current_vertex] == ((usize::MAX / 2) - 1) {
+                continue;
+            }
+
+            let mut predecessor_edge_id = predecessor_edges[current_vertex];
+
+            if *arc_flags[predecessor_edge_id]
+                .get(current_cell_id)
+                .unwrap()
+                .as_ref()
+                == true
+            {
+                continue;
+            }
+
+            loop {
+                arc_flags[predecessor_edge_id].set(current_cell_id, true);
+
+                current_vertex = predecessors[current_vertex];
+                if current_vertex == s {
+                    break;
+                }
+
+                predecessor_edge_id = predecessor_edges[current_vertex];
+            }
+        }
+    }
+    println!("Spt took: {:?}", spt.elapsed());
 }

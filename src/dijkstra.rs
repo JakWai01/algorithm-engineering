@@ -1,75 +1,110 @@
 use std::collections::BinaryHeap;
 
-use crate::{pq::PQEntry, Edge, Vertex};
+use crate::{
+    objects::{Edge, Vertex},
+    pq::PQEntry,
+};
 
-pub(crate) struct ContractionHierarchies<'a> {
-    df: Vec<usize>,
-    fq: BinaryHeap<PQEntry>,
-    offset_array_up: &'a Vec<usize>,
-    edges_up: &'a Vec<Edge>,
-    pub predecessors_up: Vec<usize>,
-    pub predecessor_edges_up: Vec<usize>,
-}
+// pub struct Dijkstra<'a> {
+//     dist: Vec<usize>,
+//     pq: BinaryHeap<PQEntry>,
+//     num_vertices: usize,
+//     offset_array: &'a Vec<usize>,
+//     edges: &'a Vec<Edge>,
+//     predecessors: Vec<usize>,
+//     predecessor_edges: Vec<usize>,
+// }
 
-impl<'a> ContractionHierarchies<'a> {
-    pub fn new(
-        num_vertices: usize,
-        offset_array_up: &'a Vec<usize>,
-        edges_up: &'a Vec<Edge>,
-    ) -> Self {
-        let df: Vec<usize> = (0..num_vertices).map(|_| (usize::MAX / 2) - 1).collect();
-        let fq: BinaryHeap<PQEntry> = BinaryHeap::new();
-        let predecessors_up: Vec<usize> = (0..num_vertices).map(|_| usize::MAX).collect();
-        let predecessor_edges_up: Vec<usize> = (0..num_vertices).map(|_| usize::MAX).collect();
+// impl<'a> Dijkstra<'a> {
+//     pub fn new(num_vertices: usize, offset_array: &'a Vec<usize>, edges: &'a Vec<Edge>) -> Self {
+//         let dist: Vec<usize> = (0..num_vertices).map(|_| usize::MAX).collect();
+//         let pq: BinaryHeap<PQEntry> = BinaryHeap::new();
+//         let predecessors: Vec<usize> = (0..num_vertices).map(|_| usize::MAX).collect();
+//         let predecessor_edges: Vec<usize> = (0..num_vertices).map(|_| usize::MAX).collect();
 
-        ContractionHierarchies {
-            df,
-            fq,
-            offset_array_up,
-            edges_up,
-            predecessors_up,
-            predecessor_edges_up,
-        }
-    }
+//         Dijkstra {
+//             dist,
+//             pq,
+//             num_vertices,
+//             offset_array,
+//             edges,
+//             predecessors,
+//             predecessor_edges,
+//         }
+//     }
 
-    pub fn ch_query(
-        &mut self,
-        start_node: usize,
-        vertices: &Vec<Vertex>,
-    ) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
-        self.df[start_node] = 0;
-        self.fq.push(PQEntry {
-            distance: 0,
-            vertex: start_node,
-        });
+//     pub fn query(&mut self, start_node: usize) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
+//         // self.dist = (0..self.num_vertices).map(|_| usize::MAX).collect();
+//         // self.pq.clear();
 
-        while let Some(PQEntry {
-            distance: _,
-            vertex,
-        }) = self.fq.pop()
-        {
-            for j in self.offset_array_up[vertex]..self.offset_array_up[vertex + 1] {
-                let edge = self.edges_up.get(j).unwrap();
-                if vertices.get(edge.end_vertex).unwrap().level
-                    > vertices.get(edge.start_vertex).unwrap().level
-                {
-                    if self.df[edge.end_vertex] > self.df[vertex] + edge.weight {
-                        self.df[edge.end_vertex] = self.df[vertex] + edge.weight;
-                        self.fq.push(PQEntry {
-                            distance: self.df[vertex] + edge.weight,
-                            vertex: edge.end_vertex,
-                        });
+//         self.dist[start_node] = 0;
+//         self.pq.push(pqentry {
+//             distance: 0,
+//             vertex: start_node,
+//         });
 
-                        self.predecessors_up[edge.end_vertex] = edge.start_vertex;
-                        self.predecessor_edges_up[edge.end_vertex] = edge.id;
-                    }
-                }
+//         while let some(pqentry {
+//             distance: _,
+//             vertex,
+//         }) = self.pq.pop()
+//         {
+//             for j in self.offset_array[vertex]..self.offset_array[vertex + 1] {
+//                 let edge = self.edges.get(j).unwrap();
+
+//                 if self.dist[edge.end_vertex] > self.dist[vertex] + edge.weight {
+//                     self.dist[edge.end_vertex] = self.dist[vertex] + edge.weight;
+
+//                     self.pq.push(pqentry {
+//                         distance: self.dist[vertex] + edge.weight,
+//                         vertex: edge.end_vertex,
+//                     });
+//                     self.predecessors[edge.end_vertex] = vertex;
+//                     self.predecessor_edges[edge.end_vertex] = edge.id
+//                 }
+//             }
+//         }
+//         (
+//             self.dist.clone(),
+//             self.predecessors.clone(),
+//             self.predecessor_edges.clone(),
+//         )
+//     }
+// }
+
+pub fn dijkstra<'a>(
+    distances: &'a mut Vec<usize>,
+    predecessors: &'a mut Vec<usize>,
+    predecessor_edges: &'a mut Vec<usize>,
+    start_node: usize,
+    offset_array: &Vec<usize>,
+    edges: &Vec<Edge>,
+) -> (&'a mut Vec<usize>, &'a mut Vec<usize>, &'a mut Vec<usize>) {
+    distances[start_node] = 0;
+    let mut pq = BinaryHeap::new();
+    pq.push(PQEntry {
+        distance: 0,
+        vertex: start_node,
+    });
+
+    while let Some(PQEntry {
+        distance: _,
+        vertex,
+    }) = pq.pop()
+    {
+        for j in offset_array[vertex]..offset_array[vertex + 1] {
+            let edge = edges.get(j).unwrap();
+
+            if distances[edge.end_vertex] > distances[vertex] + edge.weight {
+                distances[edge.end_vertex] = distances[vertex] + edge.weight;
+
+                pq.push(PQEntry {
+                    distance: distances[vertex] + edge.weight,
+                    vertex: edge.end_vertex,
+                });
+                predecessors[edge.end_vertex] = vertex;
+                predecessor_edges[edge.end_vertex] = edge.id
             }
         }
-        (
-            self.df.clone(),
-            self.predecessors_up.clone(),
-            self.predecessor_edges_up.clone(),
-        )
     }
+    (distances, predecessors, predecessor_edges)
 }

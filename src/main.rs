@@ -2,7 +2,7 @@ use std::{collections::BinaryHeap, env, fs::File, io, mem, time::Instant};
 extern crate itertools;
 use crate::{
     bidirectional_ch::BidirectionalContractionHierarchies,
-    dijkstra::ContractionHierarchies,
+    ch::ContractionHierarchies,
     objects::Edge,
     utils::{
         cell_to_id, construct_spt, create_offset_array, create_predecessor_offset_array,
@@ -12,10 +12,11 @@ use crate::{
 use bitvec::vec::BitVec;
 use objects::Vertex;
 use pq::PQEntry;
-mod dijkstra;
+mod ch;
 mod pq;
 use io::Write;
 mod bidirectional_ch;
+mod dijkstra;
 mod objects;
 mod phast;
 mod utils;
@@ -136,6 +137,9 @@ fn main() {
     let mut phast_path_finding =
         ContractionHierarchies::new(num_vertices, &offset_array_up, &edges_up);
 
+    // let mut phast_path_finding =
+    //     ContractionHierarchies::new(num_vertices, &offset_array_up, &edges_up);
+
     let s = source_target_tuples[0].0;
     let mut text: String = "".to_string();
 
@@ -148,16 +152,20 @@ fn main() {
 
     let phast_timer = Instant::now();
 
+    let mut predecessors: Vec<usize> = (0..num_vertices).map(|_| usize::MAX).collect();
+    let mut predecessor_edges: Vec<usize> = (0..num_vertices).map(|_| usize::MAX).collect();
+    let mut distances: Vec<usize> = (0..num_vertices).map(|_| (usize::MAX / 2) - 1).collect();
+
     let (distances, _, _) = phast::phast(
-        &mut phast_path_finding,
+        phast_path_finding,
         s,
-        &vertices,
         &vertices_by_level_desc,
         &edges_down_offset,
         &edge_clone_down,
     );
 
     let phast_time = phast_timer.elapsed();
+    println!("PHAST time: {:?}", phast_time);
 
     assert_eq!(436627, distances[754742]);
     println!("peek-target = {}", 436627 - 164584);
@@ -260,14 +268,21 @@ fn main() {
                     &reverse_offset_array_up,
                     &reverse_edges_up,
                 );
+                // let mut arc_flags_path_finding =
+                // Dijkstra::new(num_vertices, &reverse_offset_array_up, &reverse_edge_up);
+
+                let mut predecessors: Vec<usize> = (0..num_vertices).map(|_| usize::MAX).collect();
+                let mut predecessor_edges: Vec<usize> =
+                    (0..num_vertices).map(|_| usize::MAX).collect();
+                let mut distances: Vec<usize> =
+                    (0..num_vertices).map(|_| (usize::MAX / 2) - 1).collect();
 
                 println!("Dijkstra object creation: {:?}", dijk_phast.elapsed());
 
                 let arc_phast = Instant::now();
                 let (distances, predecessors, predecessor_edges) = phast::phast(
-                    &mut arc_flags_path_finding,
+                    arc_flags_path_finding,
                     s,
-                    &vertices,
                     &vertices_by_level_desc,
                     &reverse_offset_array_down,
                     &reverse_edges_down,

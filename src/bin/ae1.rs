@@ -1,5 +1,12 @@
 use std::{
-    cmp::Ordering, collections::{BinaryHeap, HashMap, HashSet}, env, fs::File, io::{self, BufRead}, path::Path, time::{self, Instant}, io::{Write, Error}
+    cmp::Ordering,
+    collections::{BinaryHeap, HashMap, HashSet},
+    env,
+    fs::File,
+    io::{self, BufRead},
+    io::{Error, Write},
+    path::Path,
+    time::{self, Instant},
 };
 
 // Consider using usizes in all fields
@@ -84,7 +91,7 @@ fn main() {
                 max_speed,
             };
             edges.push(edge);
-            
+
             let edge_cc = Edge {
                 start_vertex,
                 end_vertex,
@@ -110,15 +117,21 @@ fn main() {
     edges_cc.sort_by_key(|edge| edge.start_vertex);
 
     // Read dijkstra source-target pairs
-    println!("Reading source-target pairs from file: {}", dijkstra_pairs_file_path);
+    println!(
+        "Reading source-target pairs from file: {}",
+        dijkstra_pairs_file_path
+    );
     let pair_lines = read_lines(dijkstra_pairs_file_path).unwrap();
     let mut source_target_tuples: Vec<(usize, usize)> = Vec::new();
-    
+
     for line in pair_lines {
         let l = line.unwrap();
         let mut iter = l.split_whitespace();
-        
-        let source_target_tuple = (iter.next().unwrap().parse::<usize>().unwrap(), iter.next().unwrap().parse::<usize>().unwrap());
+
+        let source_target_tuple = (
+            iter.next().unwrap().parse::<usize>().unwrap(),
+            iter.next().unwrap().parse::<usize>().unwrap(),
+        );
         source_target_tuples.push(source_target_tuple)
     }
 
@@ -173,20 +186,33 @@ fn main() {
         }
     }
     let elapsed_cc = now_cc.elapsed();
-    println!("Number of connected components {} took {} ms to execute", c, elapsed_cc.as_millis());
+    println!(
+        "Number of connected components {} took {} ms to execute",
+        c,
+        elapsed_cc.as_millis()
+    );
 
     let mut path_finding = Dijkstra::new(&vertices, &offset_array, &edges);
-    
+
     let mut text: String = "".to_string();
-    
+
     for i in source_target_tuples {
         let now = Instant::now();
         let distance = path_finding.query(i.0, i.1);
         let elapsed_time = now.elapsed();
-        text.push_str(format!("{} {} {} {}\n", i.0, i.1, distance, elapsed_time.as_millis()).as_str());
+        text.push_str(
+            format!(
+                "{} {} {} {}\n",
+                i.0,
+                i.1,
+                distance,
+                elapsed_time.as_millis()
+            )
+            .as_str(),
+        );
         println!("{} {} {} {}", i.0, i.1, distance, elapsed_time.as_millis());
     }
-    
+
     let path = "output";
 
     let mut output = File::create(path).unwrap();
@@ -201,13 +227,16 @@ struct PQEntry {
 
 impl Ord for PQEntry {
     fn cmp(&self, other: &Self) -> Ordering {
-        other.distance.cmp(&self.distance).then_with(|| self.vertex.cmp(&other.vertex))
+        other
+            .distance
+            .cmp(&self.distance)
+            .then_with(|| self.vertex.cmp(&other.vertex))
     }
 }
 
 impl PartialOrd for PQEntry {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-            Some(self.cmp(other))
+        Some(self.cmp(other))
     }
 }
 
@@ -216,12 +245,16 @@ struct Dijkstra<'a> {
     pq: BinaryHeap<PQEntry>,
     vertices: &'a HashMap<usize, Vertex>,
     offset_array: &'a Vec<usize>,
-    edges: &'a Vec<Edge>
+    edges: &'a Vec<Edge>,
 }
 
 impl<'a> Dijkstra<'a> {
-    fn new(vertices: &'a HashMap<usize, Vertex>, offset_array: &'a Vec<usize>, edges: &'a Vec<Edge>) -> Self {
-        let dist: Vec<usize> =  (0..vertices.len()).map(|_| usize::MAX).collect();
+    fn new(
+        vertices: &'a HashMap<usize, Vertex>,
+        offset_array: &'a Vec<usize>,
+        edges: &'a Vec<Edge>,
+    ) -> Self {
+        let dist: Vec<usize> = (0..vertices.len()).map(|_| usize::MAX).collect();
         let pq: BinaryHeap<PQEntry> = BinaryHeap::new();
 
         Dijkstra {
@@ -229,7 +262,7 @@ impl<'a> Dijkstra<'a> {
             pq,
             vertices,
             offset_array,
-            edges
+            edges,
         }
     }
 
@@ -238,24 +271,37 @@ impl<'a> Dijkstra<'a> {
         self.pq.clear();
 
         self.dist[start_node] = 0;
-        self.pq.push(PQEntry{distance: 0, vertex: start_node});
+        self.pq.push(PQEntry {
+            distance: 0,
+            vertex: start_node,
+        });
 
-        while let Some(PQEntry{ distance, vertex }) = self.pq.pop() {
-            if vertex == target_node { return distance };
+        while let Some(PQEntry { distance, vertex }) = self.pq.pop() {
+            if vertex == target_node {
+                return distance;
+            };
 
-            for j in self.offset_array[vertex]..self.offset_array[vertex+1] {
+            for j in self.offset_array[vertex]..self.offset_array[vertex + 1] {
                 let edge = self.edges.get(j).unwrap();
                 if self.dist[edge.end_vertex] > self.dist[vertex] + edge.weight {
                     self.dist[edge.end_vertex] = self.dist[vertex] + edge.weight;
-                    self.pq.push(PQEntry{ distance: self.dist[vertex] + edge.weight, vertex: edge.end_vertex});
+                    self.pq.push(PQEntry {
+                        distance: self.dist[vertex] + edge.weight,
+                        vertex: edge.end_vertex,
+                    });
                 }
-            } 
+            }
         }
         usize::MAX
     }
 }
 
-fn dfs(start_node: usize, visited: &mut HashSet<usize>, offset_array: &Vec<usize>, edges: &Vec<Edge>) {
+fn dfs(
+    start_node: usize,
+    visited: &mut HashSet<usize>,
+    offset_array: &Vec<usize>,
+    edges: &Vec<Edge>,
+) {
     let mut stack = Vec::new();
 
     stack.push(start_node);
@@ -263,7 +309,7 @@ fn dfs(start_node: usize, visited: &mut HashSet<usize>, offset_array: &Vec<usize
 
     while !stack.is_empty() {
         if let Some(current_vertex) = stack.pop() {
-            for j in offset_array[current_vertex]..offset_array[current_vertex+1] {
+            for j in offset_array[current_vertex]..offset_array[current_vertex + 1] {
                 let edge = edges.get(j).unwrap();
                 if !visited.contains(&edge.end_vertex) {
                     stack.push(edge.end_vertex);

@@ -1,8 +1,8 @@
+use crate::ae2::objects::Edge;
+use crate::ae2::pq::PQEntry;
 use std::collections::BinaryHeap;
 
-use crate::{pq::PQEntry, Edge, Vertex};
-
-pub(crate) struct ContractionHierarchies<'a> {
+pub struct ContractionHierarchies<'a> {
     df: Vec<usize>,
     fq: BinaryHeap<PQEntry>,
     offset_array_up: &'a Vec<usize>,

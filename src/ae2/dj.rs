@@ -1,9 +1,7 @@
 use std::collections::{BinaryHeap, HashMap};
+use crate::ae2::objects::{Edge, Vertex};
+use crate::ae2::pq::PQEntry;
 
-use crate::{
-    objects::{Edge, Vertex},
-    pq::PQEntry,
-};
 
 pub struct Dijkstra<'a> {
     dist: Vec<usize>,

@@ -1,9 +1,9 @@
 use std::cmp::Ordering;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub(crate) struct PQEntry {
-    pub(crate) distance: usize,
-    pub(crate) vertex: usize,
+pub struct PQEntry {
+    pub distance: usize,
+    pub vertex: usize,
 }
 
 impl Ord for PQEntry {

@@ -6,8 +6,8 @@ use std::{
 };
 
 use bitvec::vec::BitVec;
+use crate::ae2::objects::{Edge, Vertex};
 
-use crate::{Edge, Vertex};
 
 pub fn read_fmi(path: &str) -> (Vec<Vertex>, Vec<Edge>) {
     println!("Reading graph from file: {}", path);

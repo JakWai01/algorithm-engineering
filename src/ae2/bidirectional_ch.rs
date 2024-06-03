@@ -1,8 +1,8 @@
+use crate::ae2::objects::Edge;
+use crate::ae2::pq::PQEntry;
 use std::{cmp::min, collections::BinaryHeap, f64::INFINITY};
 
-use crate::{objects::Edge, pq::PQEntry};
-
-pub(crate) struct BidirectionalContractionHierarchies<'a> {
+pub struct BidirectionalContractionHierarchies<'a> {
     pub df: Vec<usize>,
     pub db: Vec<usize>,
     pub fq: BinaryHeap<PQEntry>,

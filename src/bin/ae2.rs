@@ -1,3 +1,7 @@
+use algorithm_engineering::ae2::ch::ContractionHierarchies;
+use algorithm_engineering::ae2::pq::PQEntry;
+use bitvec::vec::BitVec;
+use std::io::Write;
 use std::{
     collections::BinaryHeap,
     env,
@@ -6,29 +10,16 @@ use std::{
     mem,
     time::Instant,
 };
-extern crate itertools;
-use crate::{
-    bidirectional_ch::BidirectionalContractionHierarchies,
-    ch::ContractionHierarchies,
-    objects::Edge,
-    utils::{
-        cell_to_id, construct_spt, create_offset_array, create_predecessor_offset_array,
-        find_bounds, get_grid_cell, read_fmi, read_lines,
-    },
-};
-use bitvec::vec::BitVec;
-use objects::Vertex;
-use pq::PQEntry;
-mod ch;
-mod pq;
-use io::Write;
-mod bidirectional_ch;
-mod dijkstra;
-mod dj;
-mod objects;
-mod phast;
-mod utils;
 
+extern crate itertools;
+
+use algorithm_engineering::ae2::bidirectional_ch::BidirectionalContractionHierarchies;
+use algorithm_engineering::ae2::objects::{Edge, Vertex};
+use algorithm_engineering::ae2::utils::{
+    cell_to_id, construct_spt, create_offset_array, create_predecessor_offset_array, find_bounds,
+    get_grid_cell, read_fmi, read_lines,
+};
+use algorithm_engineering::ae2::{dj, phast};
 use clap::Parser;
 
 #[derive(Parser, Debug)]

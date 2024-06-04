@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 #[derive(Debug, Copy, Clone)]
 pub struct Vertex {
     pub id: usize,
@@ -7,6 +9,20 @@ pub struct Vertex {
     pub height: usize,
     pub level: usize,
     pub grid_cell: (f64, f64),
+}
+
+impl Eq for Vertex {}
+
+impl PartialEq for Vertex {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Hash for Vertex {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
 }
 
 #[derive(Debug, Copy, Clone)]

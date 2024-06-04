@@ -1,9 +1,13 @@
 use algorithm_engineering::ae2::ch::ContractionHierarchies;
 use algorithm_engineering::ae2::pq::PQEntry;
 use bitvec::vec::BitVec;
+use indicatif::ProgressIterator;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+
 use std::io::Write;
 use std::{
     collections::BinaryHeap,
+    collections::HashSet,
     env,
     fs::File,
     io::{self, BufWriter},
@@ -323,64 +327,129 @@ fn main() {
     reverse_predecessor_upward_edges.sort_by_key(|edge| edge.end_vertex);
     reverse_predecessor_downward_edges.sort_by_key(|edge| edge.end_vertex);
 
+    // Sort edges by level instead of vertices
+    let mut red_by_level = reverse_edges_down.clone();
+    red_by_level.sort_by_key(|e| vertices.get(e.end_vertex).unwrap().level);
+    red_by_level.reverse();
+
     let preproc = Instant::now();
+
+    // Determine boundary nodes -- 2094229
+    let mut boundary_nodes = HashSet::new();
+
     for vertex in &vertices {
         let current_cell = vertex.grid_cell;
         let current_cell_id = cell_to_id(current_cell, m_rows, n_columns);
 
-        // if current_cell_id != 2470 {
-        //     continue;
-        // }
-
-        // if vertex.id % 1000 == 0 {
-        println!("Vertex {}/{}", vertex.id, num_vertices);
-        // }
-
         for edge in predecessor_offset[vertex.id]..predecessor_offset[vertex.id + 1] {
-            let target_edge = edges[edge];
-            let target_node = vertices[target_edge.start_vertex];
-            let neighbour_cell = target_node.grid_cell;
+            let target_edge: Edge = reverse_edges[edge];
+            let target_node = vertices[target_edge.end_vertex];
+            let neighbour_cell_id = cell_to_id(target_node.grid_cell, m_rows, n_columns);
 
-            if current_cell != neighbour_cell {
-                let s = vertex.id;
-
-                let dijk_phast = Instant::now();
-                // Swap all up and downs here
-                let arc_flags_path_finding = ContractionHierarchies::new(
-                    num_vertices,
-                    &reverse_offset_array_up,
-                    &reverse_edges_up,
-                );
-                // let mut arc_flags_path_finding =
-                // Dijkstra::new(num_vertices, &reverse_offset_array_up, &reverse_edge_up);
-
-                // println!("Dijkstra object creation: {:?}", dijk_phast.elapsed());
-
-                let arc_phast = Instant::now();
-                let (distances, predecessors, predecessor_edges) = phast::phast(
-                    arc_flags_path_finding,
-                    s,
-                    &vertices_by_level_desc,
-                    &reverse_offset_array_down,
-                    &reverse_edges_down,
-                );
-                // println!("Arc Phast took: {:?}", arc_phast.elapsed());
-
-                construct_spt(
-                    s,
-                    &vertices,
-                    &distances,
-                    &predecessors,
-                    &predecessor_edges,
-                    current_cell_id,
-                    &mut arc_flags,
-                )
+            if current_cell_id != neighbour_cell_id {
+                boundary_nodes.insert(vertex);
             } else {
                 // In the 0 0 case, we are always in here
                 arc_flags[edge].set(current_cell_id, true);
             }
         }
     }
+
+    println!("Number of boundary nodes: {}", boundary_nodes.len());
+
+    boundary_nodes
+        .iter()
+        .progress_count(boundary_nodes.len() as u64)
+        .for_each(|node| {
+            let object_creation = Instant::now();
+            let arc_flags_path_finding = ContractionHierarchies::new(
+                num_vertices,
+                &reverse_offset_array_up,
+                &reverse_edges_up,
+            );
+            // println!("Object creation took: {:?}", object_creation.elapsed());
+
+            let object_creation = Instant::now();
+            let (distances, predecessors, predecessor_edges) = phast::phast_by_edges(
+                arc_flags_path_finding,
+                node.id,
+                &red_by_level,
+                &reverse_offset_array_down,
+                &reverse_edges_down,
+            );
+            // println!("PHAST took: {:?}", object_creation.elapsed());
+
+            let object_creation = Instant::now();
+            construct_spt(
+                node.id,
+                &vertices,
+                &distances,
+                &predecessors,
+                &predecessor_edges,
+                cell_to_id(node.grid_cell, m_rows, n_columns),
+                &mut arc_flags,
+            );
+            // println!("SPT took: {:?}", object_creation.elapsed());
+        });
+    // for node in &boundary_nodes {}
+
+    // for vertex in &vertices {
+    //     let current_cell = vertex.grid_cell;
+    //     let current_cell_id = cell_to_id(current_cell, m_rows, n_columns);
+
+    //     // if current_cell_id != 2470 {
+    //     //     continue;
+    //     // }
+
+    //     if vertex.id % 1000 == 0 {
+    //         println!("Vertex {}/{}", vertex.id, num_vertices);
+    //     }
+
+    //     for edge in predecessor_offset[vertex.id]..predecessor_offset[vertex.id + 1] {
+    //         let target_edge: Edge = reverse_edges[edge];
+    //         let target_node = vertices[target_edge.end_vertex];
+    //         let neighbour_cell = target_node.grid_cell;
+
+    //         if current_cell != neighbour_cell {
+    //             let s = vertex.id;
+
+    //             let dijk_phast = Instant::now();
+    //             // Swap all up and downs here
+    //             let arc_flags_path_finding = ContractionHierarchies::new(
+    //                 num_vertices,
+    //                 &reverse_offset_array_up,
+    //                 &reverse_edges_up,
+    //             );
+    //             // let mut arc_flags_path_finding =
+    //             // Dijkstra::new(num_vertices, &reverse_offset_array_up, &reverse_edge_up);
+
+    //             // println!("Dijkstra object creation: {:?}", dijk_phast.elapsed());
+
+    //             let arc_phast = Instant::now();
+    //             let (distances, predecessors, predecessor_edges) = phast::phast_by_edges(
+    //                 arc_flags_path_finding,
+    //                 s,
+    //                 &red_by_level,
+    //                 &reverse_offset_array_down,
+    //                 &reverse_edges_down,
+    //             );
+    //             // println!("Arc Phast took: {:?}", arc_phast.elapsed());
+
+    //             construct_spt(
+    //                 s,
+    //                 &vertices,
+    //                 &distances,
+    //                 &predecessors,
+    //                 &predecessor_edges,
+    //                 current_cell_id,
+    //                 &mut arc_flags,
+    //             )
+    //         } else {
+    //             // In the 0 0 case, we are always in here
+    //             arc_flags[edge].set(current_cell_id, true);
+    //         }
+    //     }
+    // }
 
     println!("Arcflag preproc took: {:?}", preproc.elapsed());
 

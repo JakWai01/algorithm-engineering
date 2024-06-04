@@ -8,5 +8,6 @@ edition = "2021"
 [dependencies]
 bitvec = "1.0.1"
 clap = { version = "4.5.4", features = ["derive"] }
+indicatif = "0.17.8"
 itertools = "0.12.1"
 rayon = "1.10.0"
